@@ -13,3 +13,11 @@ def main() -> int:
     window.resize(1100, 720)
     window.show()
     return int(app.exec())
+
+
+def main_cli() -> int:
+    try:
+        return main()
+    except RuntimeError as exc:
+        print(str(exc))
+        return 2

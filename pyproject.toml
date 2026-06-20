@@ -34,7 +34,7 @@ gui = [
 
 [project.scripts]
 aicutting = "aicutting.cli:app"
-aicutting-studio = "aicutting.gui.app:main"
+aicutting-studio = "aicutting.gui.app:main_cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aicutting"]
