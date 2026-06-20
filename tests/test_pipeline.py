@@ -122,4 +122,10 @@ def test_pipeline_emits_render_progress_when_rendering(tmp_path: Path) -> None:
         progress=events.append,
     )
 
-    assert PipelinePhase.RENDERING_FINAL_VIDEO in [event.phase for event in events]
+    assert [event.phase for event in events] == [
+        PipelinePhase.ANALYZING_FOOTAGE,
+        PipelinePhase.PLANNING_CUT,
+        PipelinePhase.EXPORTING_RESOLVE_HANDOFF,
+        PipelinePhase.RENDERING_FINAL_VIDEO,
+        PipelinePhase.DONE,
+    ]
