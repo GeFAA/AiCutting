@@ -7,6 +7,11 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".aac", ".flac"}
 
 
 def discover_videos(input_dir: Path) -> list[Path]:
+    if not input_dir.exists():
+        raise ValidationError(f"Video input folder does not exist: {input_dir}")
+    if not input_dir.is_dir():
+        raise ValidationError(f"Video input path must be a folder: {input_dir}")
+
     videos = sorted(
         path
         for path in input_dir.iterdir()
