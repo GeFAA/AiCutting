@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import QThread
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -11,7 +12,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from aicutting.core.progress import ProgressEvent
+from aicutting.core.progress import CancellationToken, ProgressEvent
 from aicutting.gui.jobs import JobFailure, JobRequest
 from aicutting.gui.state import GuiSelection, JobStatus, default_output_dir, validate_selection
 from aicutting.gui.widgets import PathPicker, StatusPanel
@@ -26,6 +27,9 @@ class MainWindow(QMainWindow):
         self.status = JobStatus.IDLE
         self.thread: QThread | None = None
         self.worker: CutWorker | None = None
+        self.cancel_token: CancellationToken | None = None
+        self.close_requested = False
+        self._terminal_message: str | None = None
 
         self.video_picker = PathPicker("Video folder", "Choose")
         self.music_picker = PathPicker("Music", "Choose")
@@ -69,6 +73,17 @@ class MainWindow(QMainWindow):
             output_dir=self.output_picker.path(),
         )
 
+    def set_inputs_enabled(self, enabled: bool) -> None:
+        self.video_picker.setEnabled(enabled)
+        self.music_picker.setEnabled(enabled)
+        self.output_picker.setEnabled(enabled)
+
+    def is_job_active(self) -> bool:
+        return self.thread is not None or self.status in {
+            JobStatus.RUNNING,
+            JobStatus.CANCEL_REQUESTED,
+        }
+
     def choose_video_folder(self) -> None:
         selected = QFileDialog.getExistingDirectory(self, "Choose video folder")
         if selected:
@@ -93,6 +108,10 @@ class MainWindow(QMainWindow):
             self.output_picker.set_path(Path(selected))
 
     def refresh_ready_state(self) -> None:
+        if self.is_job_active():
+            self.start_button.setEnabled(False)
+            return
+
         validation = validate_selection(self.current_selection())
         self.status = validation.status
         self.start_button.setEnabled(validation.ready)
@@ -102,6 +121,9 @@ class MainWindow(QMainWindow):
             self.status_panel.set_status("Ready", busy=False)
 
     def start_job(self) -> None:
+        if self.is_job_active():
+            return
+
         validation = validate_selection(self.current_selection())
         if not validation.ready:
             self.refresh_ready_state()
@@ -117,8 +139,9 @@ class MainWindow(QMainWindow):
             dry_run=selection.dry_run,
         )
 
+        self.cancel_token = CancellationToken()
         self.thread = QThread()
-        self.worker = CutWorker(request)
+        self.worker = CutWorker(request, self.cancel_token)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.progress.connect(self.on_progress)
@@ -130,17 +153,23 @@ class MainWindow(QMainWindow):
         self.thread.finished.connect(self.on_worker_finished)
 
         self.status = JobStatus.RUNNING
+        self._terminal_message = None
+        self.result_label.clear()
+        self.set_inputs_enabled(False)
         self.start_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
         self.status_panel.set_status("Starting", busy=True)
         self.thread.start()
 
     def cancel_job(self) -> None:
+        if not self.is_job_active():
+            return
+
         self.status = JobStatus.CANCEL_REQUESTED
         self.cancel_button.setEnabled(False)
         self.status_panel.set_status("Stopping after the current step", busy=True)
-        if self.worker is not None:
-            self.worker.cancel()
+        if self.cancel_token is not None:
+            self.cancel_token.cancel()
 
     def on_progress(self, event: ProgressEvent) -> None:
         self.status_panel.set_status(event.message or event.phase.value, busy=True)
@@ -150,15 +179,50 @@ class MainWindow(QMainWindow):
         self.status = JobStatus.COMPLETE
         self.status_panel.set_status("Done", busy=False)
         self.result_label.setText(f"Finished video: {result.final_video}")
+        self._terminal_message = "Done"
 
     def on_failure(self, failure: JobFailure) -> None:
+        self.result_label.clear()
+        if failure.error_type == "PipelineCancelledError":
+            self.status = JobStatus.IDLE
+            self.status_panel.set_status("Cancelled", busy=False)
+            self._terminal_message = "Cancelled"
+            return
+
         self.status = JobStatus.FAILED
         self.status_panel.set_status(failure.message, busy=False)
         self.status_panel.append_log(f"{failure.error_type}: {failure.message}")
+        self._terminal_message = failure.message
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if not self.is_job_active():
+            event.accept()
+            return
+
+        self.close_requested = True
+        self.status = JobStatus.CANCEL_REQUESTED
+        self.cancel_button.setEnabled(False)
+        self.status_panel.set_status("Stopping before closing", busy=True)
+        if self.cancel_token is not None:
+            self.cancel_token.cancel()
+        event.ignore()
 
     def on_worker_finished(self) -> None:
-        self.cancel_button.setEnabled(False)
-        if self.status in {JobStatus.COMPLETE, JobStatus.FAILED}:
-            self.start_button.setEnabled(True)
+        close_requested = self.close_requested
+        terminal_message = self._terminal_message
+        was_cancelled = terminal_message == "Cancelled"
+
         self.thread = None
         self.worker = None
+        self.cancel_token = None
+        self.cancel_button.setEnabled(False)
+        self.set_inputs_enabled(True)
+        self.refresh_ready_state()
+        if terminal_message is not None:
+            self.status_panel.set_status(terminal_message, busy=False)
+            self._terminal_message = None
+        if was_cancelled:
+            self.status = JobStatus.IDLE
+        if close_requested:
+            self.close_requested = False
+            self.close()
