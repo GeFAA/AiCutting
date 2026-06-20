@@ -8,6 +8,7 @@ from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.video import build_candidates_from_scenes
 from aicutting.core.artifacts import write_json_model
 from aicutting.core.models import AnalysisReport, Timeline
+from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
 from aicutting.planning.engine import build_cut_plan
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.resolve.export import export_resolve_handoff
@@ -62,19 +63,27 @@ class CutPipeline:
         music_path: Path | None,
         output_dir: Path,
         dry_run: bool,
+        progress: ProgressCallback | None = None,
     ) -> PipelineResult:
         output_dir.mkdir(parents=True, exist_ok=True)
+        emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE, step=1, total=4)
         report = self.dependencies.analyze(input_dir, music_path)
+
+        emit_progress(progress, PipelinePhase.PLANNING_CUT, step=2, total=4)
         plan = build_cut_plan(report)
         final_video = output_dir / "final.mp4"
 
         write_json_model(output_dir / "analysis.json", report)
         write_json_model(output_dir / "cut-plan.json", plan)
         write_json_model(output_dir / "timeline.json", plan.timeline)
+
+        emit_progress(progress, PipelinePhase.EXPORTING_RESOLVE_HANDOFF, step=3, total=4)
         self.dependencies.export_resolve(plan.timeline, output_dir)
         if not dry_run:
+            emit_progress(progress, PipelinePhase.RENDERING_FINAL_VIDEO, step=4, total=4)
             self.dependencies.render(plan.timeline, final_video, report.audio.path)
 
+        emit_progress(progress, PipelinePhase.DONE)
         return PipelineResult(
             analysis=output_dir / "analysis.json",
             cut_plan=output_dir / "cut-plan.json",
