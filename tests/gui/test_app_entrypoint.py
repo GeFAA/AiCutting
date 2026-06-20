@@ -1,7 +1,10 @@
 import builtins
+import tomllib
+from pathlib import Path
 
 import pytest
 
+import aicutting.gui.app as gui_app
 from aicutting.gui.qt import require_qt
 
 
@@ -19,3 +22,25 @@ def test_require_qt_raises_friendly_error_when_pyside6_is_missing(
 
     with pytest.raises(RuntimeError, match="Install the GUI extra"):
         require_qt()
+
+
+def test_main_cli_returns_friendly_error_when_gui_extra_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_main() -> int:
+        raise RuntimeError("Install the GUI extra")
+
+    monkeypatch.setattr(gui_app, "main", fake_main)
+
+    result = gui_app.main_cli()
+
+    assert result == 2
+    assert "Install the GUI extra" in capsys.readouterr().out
+
+
+def test_desktop_script_uses_cli_wrapper() -> None:
+    project_root = Path(__file__).parents[2]
+    pyproject = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert pyproject["project"]["scripts"]["aicutting-studio"] == "aicutting.gui.app:main_cli"

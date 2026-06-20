@@ -79,3 +79,15 @@ def test_gui_command_delegates_to_gui_app(monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert called is True
+
+
+def test_gui_command_reports_friendly_gui_errors(monkeypatch) -> None:
+    def fake_main() -> int:
+        raise RuntimeError("Install the GUI extra")
+
+    monkeypatch.setattr("aicutting.gui.app.main", fake_main)
+
+    result = CliRunner().invoke(app, ["gui"])
+
+    assert result.exit_code == 2
+    assert "Install the GUI extra" in result.stdout
