@@ -15,32 +15,41 @@ def _parse_fps(rate: str) -> float:
 
 
 def probe_video(path: Path) -> MediaAsset:
-    result = subprocess.run(
-        [
-            "ffprobe",
-            "-v",
-            "error",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            str(path),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                str(path),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as error:
+        raise ExternalToolError(
+            f"ffprobe is not available while probing {path}. Ensure ffprobe is on PATH."
+        ) from error
+
     if result.returncode != 0:
         raise ExternalToolError(f"ffprobe failed for {path}: {result.stderr.strip()}")
 
-    payload = json.loads(result.stdout)
-    video_stream = next(
-        stream for stream in payload["streams"] if stream.get("codec_type") == "video"
-    )
-    return MediaAsset(
-        path=path,
-        duration_s=float(payload["format"]["duration"]),
-        width=int(video_stream["width"]),
-        height=int(video_stream["height"]),
-        fps=_parse_fps(str(video_stream["avg_frame_rate"])),
-    )
+    try:
+        payload = json.loads(result.stdout)
+        video_stream = next(
+            stream for stream in payload["streams"] if stream.get("codec_type") == "video"
+        )
+        return MediaAsset(
+            path=path,
+            duration_s=float(payload["format"]["duration"]),
+            width=int(video_stream["width"]),
+            height=int(video_stream["height"]),
+            fps=_parse_fps(str(video_stream["avg_frame_rate"])),
+        )
+    except (json.JSONDecodeError, KeyError, StopIteration, TypeError, ValueError) as error:
+        raise ExternalToolError(f"Invalid ffprobe output for {path}") from error
