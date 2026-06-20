@@ -1,5 +1,7 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 from aicutting.core.errors import AiCuttingError
 from aicutting.core.progress import ProgressCallback
@@ -28,9 +30,23 @@ class JobFailure:
 JobResult = JobSuccess | JobFailure
 
 
+class CutJobPipeline(Protocol):
+    def cut(
+        self,
+        input_dir: Path,
+        music_path: Path | None,
+        output_dir: Path,
+        dry_run: bool,
+        progress: ProgressCallback | None = None,
+    ) -> PipelineResult: ...
+
+
+PipelineFactory = Callable[[], CutJobPipeline]
+
+
 def run_cut_job(
     request: JobRequest,
-    pipeline_factory: type[CutPipeline] = CutPipeline,
+    pipeline_factory: PipelineFactory = CutPipeline,
     progress: ProgressCallback | None = None,
 ) -> JobResult:
     try:
