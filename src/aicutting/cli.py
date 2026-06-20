@@ -22,6 +22,19 @@ def version() -> None:
 
 
 @app.command()
+def gui() -> None:
+    """Launch AiCutting Studio."""
+    try:
+        from aicutting.gui.app import main as run_gui
+
+        exit_code = run_gui()
+    except RuntimeError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=2) from exc
+    raise typer.Exit(code=exit_code)
+
+
+@app.command()
 def cut(
     input_dir: Annotated[Path, typer.Argument(help="Folder containing drone videos.")],
     out: Annotated[

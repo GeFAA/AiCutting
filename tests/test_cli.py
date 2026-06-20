@@ -63,3 +63,19 @@ def test_cut_command_reports_pipeline_errors(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 2
     assert "FFmpeg is not available" in result.stdout
+
+
+def test_gui_command_delegates_to_gui_app(monkeypatch) -> None:
+    called = False
+
+    def fake_main() -> int:
+        nonlocal called
+        called = True
+        return 0
+
+    monkeypatch.setattr("aicutting.gui.app.main", fake_main)
+
+    result = CliRunner().invoke(app, ["gui"])
+
+    assert result.exit_code == 0
+    assert called is True
