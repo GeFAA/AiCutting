@@ -24,6 +24,25 @@ py -m pip install -e ".[dev]"
 
 If your `python` command points to the Microsoft Store alias on Windows, use the `py` launcher as shown above.
 
+## Launch AiCutting Studio
+
+The desktop app is optional during development because it depends on PySide6:
+
+```powershell
+py -m pip install -e ".[dev,gui]"
+aicutting-studio
+```
+
+You can also launch it through the CLI:
+
+```powershell
+aicutting gui
+```
+
+The GUI keeps the same pipeline as the CLI. It collects a video folder, optional
+music, and an output folder, then writes the same `final.mp4`, JSON artifacts, and
+Resolve handoff files.
+
 ## Basic Usage
 
 ```powershell
@@ -49,4 +68,3 @@ py -m pytest
 py -m ruff check .
 py -m mypy src
 ```
-
