@@ -1,3 +1,5 @@
+from threading import Event
+
 from aicutting.core.progress import (
     CancellationToken,
     PipelineCancelledError,
@@ -46,3 +48,14 @@ def test_cancelled_token_raises_pipeline_cancelled_error() -> None:
         assert str(exc) == "Cut was cancelled by the user."
     else:
         raise AssertionError("Expected PipelineCancelledError")
+
+
+def test_cancellation_token_uses_thread_safe_event() -> None:
+    token = CancellationToken()
+
+    assert isinstance(token._cancelled, Event)
+    assert token.cancelled is False
+
+    token.cancel()
+
+    assert token.cancelled is True

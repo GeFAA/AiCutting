@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from threading import Event
 
 from aicutting.core.errors import AiCuttingError
 
@@ -49,17 +50,17 @@ ProgressCallback = Callable[[ProgressEvent], None]
 
 class CancellationToken:
     def __init__(self) -> None:
-        self._cancelled = False
+        self._cancelled = Event()
 
     @property
     def cancelled(self) -> bool:
-        return self._cancelled
+        return self._cancelled.is_set()
 
     def cancel(self) -> None:
-        self._cancelled = True
+        self._cancelled.set()
 
     def raise_if_cancelled(self) -> None:
-        if self._cancelled:
+        if self._cancelled.is_set():
             raise PipelineCancelledError("Cut was cancelled by the user.")
 
 
