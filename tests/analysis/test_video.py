@@ -14,6 +14,14 @@ def test_score_frame_quality_rewards_contrast() -> None:
     assert score_frame_quality(contrast) > score_frame_quality(flat)
 
 
+def test_score_frame_quality_rewards_sharp_edges() -> None:
+    flat = np.full((20, 20, 3), 120, dtype=np.uint8)
+    edged = np.zeros((20, 20, 3), dtype=np.uint8)
+    edged[::2, :] = 255
+
+    assert score_frame_quality(edged) > score_frame_quality(flat)
+
+
 def test_build_candidates_from_scenes_skips_tiny_segments() -> None:
     asset = MediaAsset(path=Path("clip.mp4"), duration_s=20.0, width=1920, height=1080, fps=25.0)
     candidates = build_candidates_from_scenes(

@@ -23,7 +23,15 @@ def _load_with_librosa(path: Path) -> tuple[list[float], float, list[float]]:
     beats_s = librosa.frames_to_time(beat_frames, sr=sr).round(3).tolist()
     duration_s = float(librosa.get_duration(y=y, sr=sr))
     rms = librosa.feature.rms(y=y)[0]
-    energy = np.interp(rms, (float(rms.min()), float(rms.max()) or 1.0), (0.0, 1.0)).round(
-        6
-    ).tolist()
+    energy = _normalize_energy(rms)
     return beats_s, round(duration_s, 3), energy
+
+
+def _normalize_energy(rms: np.ndarray) -> list[float]:
+    min_rms = float(rms.min())
+    max_rms = float(rms.max())
+    if max_rms <= min_rms:
+        normalized_energy = np.zeros_like(rms)
+    else:
+        normalized_energy = (rms - min_rms) / (max_rms - min_rms)
+    return [float(value) for value in normalized_energy.round(6)]
