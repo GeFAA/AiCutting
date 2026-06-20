@@ -44,7 +44,19 @@ def cut(
         typer.echo(str(exc))
         raise typer.Exit(code=2) from exc
 
-    typer.echo(f"Input: {inputs.input_dir}")
-    typer.echo(f"Music: {inputs.music_path if inputs.music_path else 'none'}")
-    typer.echo(f"Output: {inputs.output_dir}")
-    typer.echo(f"Dry run: {dry_run}")
+    try:
+        from aicutting.pipeline import CutPipeline
+
+        result = CutPipeline().cut(
+            input_dir=inputs.input_dir,
+            music_path=inputs.music_path,
+            output_dir=inputs.output_dir,
+            dry_run=dry_run,
+        )
+    except AiCuttingError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=2) from exc
+    typer.echo(f"Analysis: {result.analysis}")
+    typer.echo(f"Cut plan: {result.cut_plan}")
+    typer.echo(f"Timeline: {result.timeline}")
+    typer.echo(f"Final video: {result.final_video}")
