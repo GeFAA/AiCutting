@@ -2,7 +2,7 @@ from aicutting.core.models import ClipCandidate
 
 
 def rank_candidates(candidates: list[ClipCandidate]) -> list[ClipCandidate]:
-    ranked = sorted(candidates, key=lambda candidate: candidate.quality_score, reverse=True)
+    ranked = sorted(candidates, key=lambda candidate: candidate.composite_score, reverse=True)
     output: list[ClipCandidate] = []
     used_keys: set[str] = set()
     deferred: list[ClipCandidate] = []
