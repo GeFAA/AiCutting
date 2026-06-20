@@ -50,6 +50,8 @@ class AnalysisReport(BaseModel):
     audio: AudioAnalysis
 
     def best_candidates(self, limit: int) -> list[ClipCandidate]:
+        if limit < 0:
+            raise ValueError("limit must be non-negative")
         return sorted(self.candidates, key=lambda item: item.composite_score, reverse=True)[:limit]
 
 
@@ -72,6 +74,14 @@ class TimelineClip(BaseModel):
     transition_in: Transition
     speed: float = Field(gt=0)
     color_intent: str
+
+    @field_validator("source_end_s")
+    @classmethod
+    def source_end_must_follow_source_start(cls, value: float, info: ValidationInfo) -> float:
+        start = info.data.get("source_start_s", 0.0)
+        if value <= start:
+            raise ValueError("source_end_s must be greater than source_start_s")
+        return value
 
     @property
     def source_duration_s(self) -> float:
