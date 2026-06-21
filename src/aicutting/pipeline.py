@@ -10,6 +10,7 @@ from aicutting.core.artifacts import write_json_model, write_json_models
 from aicutting.core.models import AnalysisReport, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
 from aicutting.director.engine import build_director_outputs
+from aicutting.director.location import fallback_location_suggestion
 from aicutting.planning.engine import build_cut_plan
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.resolve.export import export_resolve_handoff
@@ -67,6 +68,9 @@ class CutPipeline:
         output_dir.mkdir(parents=True, exist_ok=True)
         emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE, step=1, total=4)
         report = self.dependencies.analyze(input_dir, music_path)
+        location_suggestions = [
+            fallback_location_suggestion("no metadata or agent backend available")
+        ]
         director_outputs = build_director_outputs(report)
 
         emit_progress(progress, PipelinePhase.PLANNING_CUT, step=2, total=4)
@@ -80,7 +84,7 @@ class CutPipeline:
         write_json_models(
             output_dir / "rejected-segments.json", director_outputs.rejected_segments
         )
-        write_json_models(output_dir / "location-suggestions.json", [])
+        write_json_models(output_dir / "location-suggestions.json", location_suggestions)
 
         emit_progress(progress, PipelinePhase.EXPORTING_RESOLVE_HANDOFF, step=3, total=4)
         self.dependencies.export_resolve(plan.timeline, output_dir)
