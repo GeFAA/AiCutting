@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -10,6 +11,12 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 def write_json_model(path: Path, model: BaseModel) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = model.model_dump(mode="json")
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def write_json_models(path: Path, models: Sequence[BaseModel]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = [model.model_dump(mode="json") for model in models]
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 

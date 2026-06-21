@@ -158,3 +158,42 @@ def test_default_analyze_builds_candidates_across_long_assets(
     assert len(report.candidates) >= 10
     assert report.candidates[0].start_s > 0.0
     assert any(candidate.start_s >= 30.0 for candidate in report.candidates)
+
+
+def test_pipeline_writes_director_artifacts(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+
+    report = AnalysisReport(
+        media=[MediaAsset(path=video, duration_s=8, width=1920, height=1080, fps=25)],
+        candidates=[
+            ClipCandidate(
+                asset_path=video,
+                start_s=0,
+                end_s=5,
+                quality_score=0.9,
+                motion_score=0.2,
+                diversity_key="clip:0",
+            )
+        ],
+        audio=AudioAnalysis(path=None, duration_s=0, beats_s=[], energy=[]),
+    )
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: report,
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(
+        input_dir=input_dir,
+        music_path=None,
+        output_dir=output_dir,
+        dry_run=True,
+    )
+
+    assert (output_dir / "director-report.json").exists()
+    assert (output_dir / "rejected-segments.json").exists()
+    assert (output_dir / "location-suggestions.json").exists()
