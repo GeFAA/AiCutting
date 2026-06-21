@@ -71,10 +71,20 @@ class CutPipeline:
         location_suggestions = [
             fallback_location_suggestion("no metadata or agent backend available")
         ]
-        director_outputs = build_director_outputs(report)
+        director_outputs = build_director_outputs(
+            report, location_suggestions=location_suggestions
+        )
 
         emit_progress(progress, PipelinePhase.PLANNING_CUT, step=2, total=4)
         plan = build_cut_plan(director_outputs.analysis)
+        if director_outputs.director_report.title is not None:
+            plan = plan.model_copy(
+                update={
+                    "timeline": plan.timeline.model_copy(
+                        update={"title": director_outputs.director_report.title}
+                    )
+                }
+            )
         final_video = output_dir / "final.mp4"
 
         write_json_model(output_dir / "analysis.json", director_outputs.analysis)
