@@ -33,3 +33,40 @@ def test_build_cut_plan_creates_timeline_until_target_duration() -> None:
     assert plan.style == "adaptive_clean_cinematic"
     assert plan.timeline.clips[0].timeline_start_s == 0.0
     assert len(plan.timeline.clips) == 2
+
+
+def test_build_cut_plan_uses_high_music_energy_for_shorter_cuts() -> None:
+    candidates = [
+        ClipCandidate(
+            asset_path=Path(f"clip-{index}.mp4"),
+            start_s=10.0,
+            end_s=18.0,
+            quality_score=0.8,
+            motion_score=0.7,
+            diversity_key=f"clip-{index}:1",
+        )
+        for index in range(8)
+    ]
+    report = AnalysisReport(
+        media=[
+            MediaAsset(
+                path=Path("clip-0.mp4"),
+                duration_s=80.0,
+                width=3840,
+                height=2160,
+                fps=60.0,
+            )
+        ],
+        candidates=candidates,
+        audio=AudioAnalysis(
+            path=Path("song.mp3"),
+            duration_s=80.0,
+            beats_s=[float(index) * 0.5 for index in range(160)],
+            energy=[0.9 for _ in range(160)],
+        ),
+    )
+
+    plan = build_cut_plan(report)
+
+    assert len(plan.timeline.clips) >= 3
+    assert max(clip.source_duration_s for clip in plan.timeline.clips[:3]) <= 4.0

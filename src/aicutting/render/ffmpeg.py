@@ -2,7 +2,7 @@ import subprocess
 from pathlib import Path
 
 from aicutting.core.errors import ExternalToolError
-from aicutting.core.models import Timeline
+from aicutting.core.models import Timeline, TransitionType
 
 
 def build_ffmpeg_command(
@@ -12,25 +12,30 @@ def build_ffmpeg_command(
 ) -> list[str]:
     inputs: list[str] = []
     for clip in timeline.clips:
-        inputs.extend(["-i", _ffmpeg_path(clip.asset_path)])
+        inputs.extend(
+            [
+                "-ss",
+                _format_seconds(clip.source_start_s),
+                "-t",
+                _format_seconds(clip.source_duration_s),
+                "-i",
+                _ffmpeg_path(clip.asset_path),
+            ]
+        )
     if music_path is not None:
         inputs.extend(["-i", _ffmpeg_path(music_path)])
 
     video_filters: list[str] = []
     concat_inputs: list[str] = []
-    for index, clip in enumerate(timeline.clips):
+    for index, _clip in enumerate(timeline.clips):
         label = f"v{index}"
         video_filters.append(
-            f"[{index}:v]trim=start={clip.source_start_s}:end={clip.source_end_s},"
-            f"setpts=PTS-STARTPTS,scale={timeline.width}:{timeline.height},fps={timeline.fps}[{label}]"
+            f"[{index}:v]setpts=PTS-STARTPTS,scale={timeline.width}:{timeline.height},"
+            f"fps={timeline.fps},format=yuv420p,settb=AVTB[{label}]"
         )
         concat_inputs.append(f"[{label}]")
 
-    filter_complex = ";".join(video_filters)
-    if concat_inputs:
-        filter_complex = (
-            f"{filter_complex};{''.join(concat_inputs)}concat=n={len(concat_inputs)}:v=1:a=0[vout]"
-        )
+    filter_complex = _compose_video_filter(timeline, video_filters, concat_inputs)
 
     command = ["ffmpeg", "-y", *inputs, "-filter_complex", filter_complex, "-map", "[vout]"]
     if music_path is not None:
@@ -52,3 +57,53 @@ def render_timeline(timeline: Timeline, output_path: Path, music_path: Path | No
 
 def _ffmpeg_path(path: Path) -> str:
     return path.as_posix()
+
+
+def _compose_video_filter(
+    timeline: Timeline,
+    video_filters: list[str],
+    concat_inputs: list[str],
+) -> str:
+    if not concat_inputs:
+        return ";".join(video_filters)
+
+    has_rendered_transition = any(
+        clip.transition_in.kind == TransitionType.DISSOLVE and clip.transition_in.duration_s > 0
+        for clip in timeline.clips[1:]
+    )
+    if not has_rendered_transition:
+        return (
+            f"{';'.join(video_filters)};"
+            f"{''.join(concat_inputs)}concat=n={len(concat_inputs)}:v=1:a=0[vout]"
+        )
+
+    chain_filters = list(video_filters)
+    current_label = "v0"
+    output_duration_s = timeline.clips[0].timeline_duration_s
+    last_clip_index = len(timeline.clips) - 1
+    for index, clip in enumerate(timeline.clips[1:], start=1):
+        clip_duration_s = clip.timeline_duration_s
+        next_label = "vout" if index == last_clip_index else f"x{index}"
+        if clip.transition_in.kind == TransitionType.DISSOLVE and clip.transition_in.duration_s > 0:
+            transition_duration_s = min(
+                clip.transition_in.duration_s,
+                max(0.001, output_duration_s - 0.001),
+                max(0.001, clip_duration_s - 0.001),
+            )
+            offset_s = max(0.0, output_duration_s - transition_duration_s)
+            chain_filters.append(
+                f"[{current_label}][v{index}]xfade=transition=fade:"
+                f"duration={_format_seconds(transition_duration_s)}:"
+                f"offset={_format_seconds(offset_s)}[{next_label}]"
+            )
+            output_duration_s = output_duration_s + clip_duration_s - transition_duration_s
+        else:
+            chain_filters.append(f"[{current_label}][v{index}]concat=n=2:v=1:a=0[{next_label}]")
+            output_duration_s += clip_duration_s
+        current_label = next_label
+
+    return ";".join(chain_filters)
+
+
+def _format_seconds(value: float) -> str:
+    return str(round(value, 3))

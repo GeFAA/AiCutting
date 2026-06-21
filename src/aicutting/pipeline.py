@@ -5,7 +5,7 @@ from pathlib import Path
 from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
-from aicutting.analysis.video import build_candidates_from_scenes
+from aicutting.analysis.video import build_candidates_from_scenes, score_candidates_from_video
 from aicutting.core.artifacts import write_json_model
 from aicutting.core.models import AnalysisReport, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
@@ -36,15 +36,13 @@ def default_analyze(input_dir: Path, music_path: Path | None) -> AnalysisReport:
     media = [probe_video(path) for path in videos]
     candidates = []
     for asset in media:
-        scenes = [(0.0, min(asset.duration_s, 6.0))]
-        candidates.extend(
-            build_candidates_from_scenes(
-                asset,
-                scenes,
-                quality_score=0.7,
-                motion_score=0.4,
-            )
+        base_candidates = build_candidates_from_scenes(
+            asset,
+            [(0.0, asset.duration_s)],
+            quality_score=0.7,
+            motion_score=0.4,
         )
+        candidates.extend(score_candidates_from_video(asset, base_candidates))
     audio = analyze_music(music)
     return AnalysisReport(media=media, candidates=candidates, audio=audio)
 
