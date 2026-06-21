@@ -43,6 +43,7 @@ packages = ["src/aicutting"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "--import-mode=importlib"
 
 [tool.ruff]
 line-length = 100
