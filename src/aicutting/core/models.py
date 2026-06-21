@@ -19,6 +19,12 @@ class AudioAnalysis(BaseModel):
     energy: list[float]
 
 
+class LocationTitle(BaseModel):
+    title: str
+    subtitle: str | None = None
+    confidence: float = Field(ge=0, le=1)
+
+
 class ClipCandidate(BaseModel):
     asset_path: Path
     start_s: float = Field(ge=0)
@@ -26,6 +32,13 @@ class ClipCandidate(BaseModel):
     quality_score: float = Field(ge=0, le=1)
     motion_score: float = Field(ge=0, le=1)
     diversity_key: str
+    smoothness_score: float | None = Field(default=None, ge=0, le=1)
+    jitter_score: float | None = Field(default=None, ge=0, le=1)
+    movement_score: float | None = Field(default=None, ge=0, le=1)
+    composition_score: float | None = Field(default=None, ge=0, le=1)
+    usability_score: float | None = Field(default=None, ge=0, le=1)
+    movement_type: str = "unknown"
+    rejection_reason: str | None = None
 
     @field_validator("end_s")
     @classmethod
@@ -42,6 +55,13 @@ class ClipCandidate(BaseModel):
     @property
     def composite_score(self) -> float:
         return round((self.quality_score * 0.7) + (self.motion_score * 0.3), 6)
+
+    @property
+    def director_score(self) -> float:
+        usability = (
+            self.usability_score if self.usability_score is not None else self.composite_score
+        )
+        return round((self.composite_score * 0.35) + (usability * 0.65), 6)
 
 
 class AnalysisReport(BaseModel):
