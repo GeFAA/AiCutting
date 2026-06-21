@@ -3,6 +3,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from aicutting.analysis.motion import analyze_motion_frames, reject_bad_motion
 from aicutting.core.models import ClipCandidate, MediaAsset
 
 WINDOW_DURATION_S = 5.0
@@ -65,12 +66,25 @@ def score_candidates_from_video(
                 scored.append(candidate)
                 continue
             quality = round(float(np.mean([score_frame_quality(frame) for frame in frames])), 6)
-            motion = _score_motion(frames)
+            motion_result = analyze_motion_frames(frames)
+            rejection = reject_bad_motion(
+                motion_result,
+                starts_near_clip_edge=(
+                    candidate.start_s <= 8.0 or asset.duration_s - candidate.end_s <= 8.0
+                ),
+            )
             scored.append(
                 candidate.model_copy(
                     update={
                         "quality_score": quality,
-                        "motion_score": motion,
+                        "motion_score": motion_result.movement_score,
+                        "smoothness_score": motion_result.smoothness_score,
+                        "jitter_score": motion_result.jitter_score,
+                        "movement_score": motion_result.movement_score,
+                        "composition_score": motion_result.composition_score,
+                        "usability_score": motion_result.usability_score,
+                        "movement_type": motion_result.movement_type,
+                        "rejection_reason": rejection,
                     }
                 )
             )
@@ -125,18 +139,6 @@ def _read_frame_at(capture: cv2.VideoCapture, time_s: float) -> np.ndarray | Non
         return frame
     scale = 640 / width
     return cv2.resize(frame, (640, max(1, int(height * scale))), interpolation=cv2.INTER_AREA)
-
-
-def _score_motion(frames: list[np.ndarray]) -> float:
-    if len(frames) < 2:
-        return 0.2
-    diffs: list[float] = []
-    for previous, current in zip(frames, frames[1:], strict=False):
-        previous_gray = cv2.cvtColor(previous, cv2.COLOR_BGR2GRAY)
-        current_gray = cv2.cvtColor(current, cv2.COLOR_BGR2GRAY)
-        diff = float(np.mean(cv2.absdiff(previous_gray, current_gray))) / 50.0
-        diffs.append(min(1.0, diff))
-    return round(float(np.mean(diffs)), 6)
 
 
 def _diversity_key(path: Path, start_s: float) -> str:
