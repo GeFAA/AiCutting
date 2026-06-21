@@ -6,9 +6,10 @@ from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.video import build_candidates_from_scenes, score_candidates_from_video
-from aicutting.core.artifacts import write_json_model
+from aicutting.core.artifacts import write_json_model, write_json_models
 from aicutting.core.models import AnalysisReport, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
+from aicutting.director.engine import build_director_outputs
 from aicutting.planning.engine import build_cut_plan
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.resolve.export import export_resolve_handoff
@@ -66,14 +67,20 @@ class CutPipeline:
         output_dir.mkdir(parents=True, exist_ok=True)
         emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE, step=1, total=4)
         report = self.dependencies.analyze(input_dir, music_path)
+        director_outputs = build_director_outputs(report)
 
         emit_progress(progress, PipelinePhase.PLANNING_CUT, step=2, total=4)
-        plan = build_cut_plan(report)
+        plan = build_cut_plan(director_outputs.analysis)
         final_video = output_dir / "final.mp4"
 
-        write_json_model(output_dir / "analysis.json", report)
+        write_json_model(output_dir / "analysis.json", director_outputs.analysis)
         write_json_model(output_dir / "cut-plan.json", plan)
         write_json_model(output_dir / "timeline.json", plan.timeline)
+        write_json_model(output_dir / "director-report.json", director_outputs.director_report)
+        write_json_models(
+            output_dir / "rejected-segments.json", director_outputs.rejected_segments
+        )
+        write_json_models(output_dir / "location-suggestions.json", [])
 
         emit_progress(progress, PipelinePhase.EXPORTING_RESOLVE_HANDOFF, step=3, total=4)
         self.dependencies.export_resolve(plan.timeline, output_dir)
