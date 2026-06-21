@@ -3,6 +3,7 @@ from pathlib import Path
 
 from aicutting.core.errors import ExternalToolError
 from aicutting.core.models import Timeline, TransitionType
+from aicutting.render.titles import build_drawtext_filter, discover_font
 
 
 def build_ffmpeg_command(
@@ -35,7 +36,14 @@ def build_ffmpeg_command(
         )
         concat_inputs.append(f"[{label}]")
 
-    filter_complex = _compose_video_filter(timeline, video_filters, concat_inputs)
+    if timeline.title is not None:
+        base_filter = _compose_video_filter(
+            timeline, video_filters, concat_inputs, output_label="vbase"
+        )
+        drawtext = build_drawtext_filter(timeline.title, discover_font())
+        filter_complex = f"{base_filter};[vbase]{drawtext}[vout]"
+    else:
+        filter_complex = _compose_video_filter(timeline, video_filters, concat_inputs)
 
     command = ["ffmpeg", "-y", *inputs, "-filter_complex", filter_complex, "-map", "[vout]"]
     if music_path is not None:
@@ -63,6 +71,7 @@ def _compose_video_filter(
     timeline: Timeline,
     video_filters: list[str],
     concat_inputs: list[str],
+    output_label: str = "vout",
 ) -> str:
     if not concat_inputs:
         return ";".join(video_filters)
@@ -74,7 +83,7 @@ def _compose_video_filter(
     if not has_rendered_transition:
         return (
             f"{';'.join(video_filters)};"
-            f"{''.join(concat_inputs)}concat=n={len(concat_inputs)}:v=1:a=0[vout]"
+            f"{''.join(concat_inputs)}concat=n={len(concat_inputs)}:v=1:a=0[{output_label}]"
         )
 
     chain_filters = list(video_filters)
@@ -83,7 +92,7 @@ def _compose_video_filter(
     last_clip_index = len(timeline.clips) - 1
     for index, clip in enumerate(timeline.clips[1:], start=1):
         clip_duration_s = clip.timeline_duration_s
-        next_label = "vout" if index == last_clip_index else f"x{index}"
+        next_label = output_label if index == last_clip_index else f"x{index}"
         if clip.transition_in.kind == TransitionType.DISSOLVE and clip.transition_in.duration_s > 0:
             transition_duration_s = min(
                 clip.transition_in.duration_s,

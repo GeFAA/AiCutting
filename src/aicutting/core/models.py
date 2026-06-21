@@ -118,6 +118,7 @@ class Timeline(BaseModel):
     fps: float = Field(gt=0)
     width: int = Field(gt=0)
     height: int = Field(gt=0)
+    title: LocationTitle | None = None
 
 
 class CutPlan(BaseModel):
