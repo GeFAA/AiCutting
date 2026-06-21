@@ -59,3 +59,36 @@ def test_rank_candidates_uses_composite_score_before_quality_score() -> None:
     ranked = rank_candidates([high_quality_low_motion, lower_quality_high_motion])
 
     assert ranked[0] == lower_quality_high_motion
+
+
+def test_rank_candidates_interleaves_source_assets() -> None:
+    candidates = [
+        ClipCandidate(
+            asset_path=Path("a.mp4"),
+            start_s=float(index * 5),
+            end_s=float(index * 5 + 5),
+            quality_score=0.9,
+            motion_score=0.8 - (index * 0.02),
+            diversity_key=f"a:{index}",
+        )
+        for index in range(4)
+    ] + [
+        ClipCandidate(
+            asset_path=Path("b.mp4"),
+            start_s=float(index * 5),
+            end_s=float(index * 5 + 5),
+            quality_score=0.82,
+            motion_score=0.7 - (index * 0.02),
+            diversity_key=f"b:{index}",
+        )
+        for index in range(2)
+    ]
+
+    ranked = rank_candidates(candidates)
+
+    assert [candidate.asset_path.name for candidate in ranked[:4]] == [
+        "a.mp4",
+        "b.mp4",
+        "a.mp4",
+        "b.mp4",
+    ]

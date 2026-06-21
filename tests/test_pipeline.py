@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 from aicutting.core.models import AnalysisReport, AudioAnalysis, ClipCandidate, MediaAsset
 from aicutting.core.progress import PipelinePhase, ProgressEvent
-from aicutting.pipeline import CutPipeline, PipelineDependencies
+from aicutting.pipeline import CutPipeline, PipelineDependencies, default_analyze
 
 
 def test_pipeline_writes_artifacts_without_rendering(tmp_path: Path) -> None:
@@ -129,3 +131,30 @@ def test_pipeline_emits_render_progress_when_rendering(tmp_path: Path) -> None:
         PipelinePhase.RENDERING_FINAL_VIDEO,
         PipelinePhase.DONE,
     ]
+
+
+def test_default_analyze_builds_candidates_across_long_assets(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr("aicutting.pipeline.discover_videos", lambda _: [video])
+    monkeypatch.setattr("aicutting.pipeline.discover_music", lambda _: None)
+    monkeypatch.setattr(
+        "aicutting.pipeline.probe_video",
+        lambda _: MediaAsset(path=video, duration_s=72.0, width=3840, height=2160, fps=60.0),
+    )
+    monkeypatch.setattr(
+        "aicutting.pipeline.analyze_music",
+        lambda _: AudioAnalysis(path=None, duration_s=0.0, beats_s=[], energy=[]),
+    )
+
+    report = default_analyze(input_dir, music_path=None)
+
+    assert len(report.candidates) >= 10
+    assert report.candidates[0].start_s > 0.0
+    assert any(candidate.start_s >= 30.0 for candidate in report.candidates)
