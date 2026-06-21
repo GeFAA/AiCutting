@@ -12,23 +12,27 @@ _FONT_CANDIDATES = (
 
 
 def escape_drawtext_text(text: str) -> str:
-    return text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    # Produce a value safe to wrap in ffmpeg single quotes. Inside those quotes ':'
+    # still needs '\:' and a literal "'" cannot be backslash-escaped, so it is written
+    # as the close/escaped-quote/reopen splice "'\''".
+    return text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "'\\''")
 
 
 def build_drawtext_filter(title: LocationTitle, font_path: Path | None) -> str:
-    font = f":fontfile='{font_path.as_posix()}'" if font_path else ""
-    title_text = escape_drawtext_text(title.title)
-    subtitle = escape_drawtext_text(title.subtitle or "")
+    # fontfile MUST precede text: ffmpeg drops a fontfile that follows an apostrophe
+    # splice in the text value and then fails to load any font.
+    font = f"fontfile='{escape_drawtext_text(font_path.as_posix())}':" if font_path else ""
     main = (
         "drawtext="
-        f"text='{title_text}'{font}:fontsize=54:fontcolor=white:"
+        f"{font}text='{escape_drawtext_text(title.title)}':fontsize=54:fontcolor=white:"
         "x=80:y=h-190:shadowcolor=black:shadowx=2:shadowy=2"
     )
+    subtitle = title.subtitle or ""
     if not subtitle:
         return main
     sub = (
         "drawtext="
-        f"text='{subtitle}'{font}:fontsize=30:fontcolor=white:"
+        f"{font}text='{escape_drawtext_text(subtitle)}':fontsize=30:fontcolor=white:"
         "x=82:y=h-126:shadowcolor=black:shadowx=2:shadowy=2"
     )
     return f"{main},{sub}"
