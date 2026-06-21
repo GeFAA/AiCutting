@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from PySide6.QtCore import QThread
-from PySide6.QtGui import QCloseEvent
+from PySide6.QtCore import QThread, QUrl
+from PySide6.QtGui import QCloseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
         self.cancel_token: CancellationToken | None = None
         self.close_requested = False
         self._terminal_message: str | None = None
+        self.latest_result: PipelineResult | None = None
 
         self.video_picker = PathPicker("Video folder", "Choose")
         self.music_picker = PathPicker("Music", "Choose")
@@ -37,8 +38,13 @@ class MainWindow(QMainWindow):
         self.start_button = QPushButton("Start")
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setEnabled(False)
+        self.open_video_button = QPushButton("Open final video")
+        self.open_output_button = QPushButton("Open output folder")
         self.status_panel = StatusPanel()
         self.result_label = QLabel("")
+        self.artifacts_label = QLabel("")
+        self.artifacts_label.setWordWrap(True)
+        self.clear_result_ui()
 
         root = QWidget()
         layout = QVBoxLayout(root)
@@ -53,6 +59,11 @@ class MainWindow(QMainWindow):
         layout.addLayout(actions)
         layout.addWidget(self.status_panel)
         layout.addWidget(self.result_label)
+        result_actions = QHBoxLayout()
+        result_actions.addWidget(self.open_video_button)
+        result_actions.addWidget(self.open_output_button)
+        layout.addLayout(result_actions)
+        layout.addWidget(self.artifacts_label)
         self.setCentralWidget(root)
 
         self.video_picker.button.clicked.connect(self.choose_video_folder)
@@ -60,6 +71,8 @@ class MainWindow(QMainWindow):
         self.output_picker.button.clicked.connect(self.choose_output_folder)
         self.start_button.clicked.connect(self.start_job)
         self.cancel_button.clicked.connect(self.cancel_job)
+        self.open_video_button.clicked.connect(self.open_final_video)
+        self.open_output_button.clicked.connect(self.open_output_folder)
 
         self.video_picker.path_changed.connect(lambda _: self.refresh_ready_state())
         self.music_picker.path_changed.connect(lambda _: self.refresh_ready_state())
@@ -120,6 +133,55 @@ class MainWindow(QMainWindow):
         else:
             self.status_panel.set_status("Ready", busy=False)
 
+    def update_start_enabled_from_selection(self) -> None:
+        if self.is_job_active():
+            self.start_button.setEnabled(False)
+            return
+
+        validation = validate_selection(self.current_selection())
+        self.start_button.setEnabled(validation.ready)
+
+    def clear_result_ui(self) -> None:
+        self.latest_result = None
+        self.result_label.clear()
+        self.artifacts_label.clear()
+        self.open_video_button.setEnabled(False)
+        self.open_output_button.setEnabled(False)
+        self.open_video_button.setVisible(False)
+        self.open_output_button.setVisible(False)
+
+    def show_result_ui(self, result: PipelineResult) -> None:
+        resolve_dir = result.output_dir / "resolve"
+        self.latest_result = result
+        self.result_label.setText(f"Finished video: {result.final_video}")
+        self.artifacts_label.setText(
+            "Artifacts: "
+            f"analysis={result.analysis}, "
+            f"cut-plan={result.cut_plan}, "
+            f"timeline={result.timeline}, "
+            f"Resolve handoff=ready at {resolve_dir}"
+        )
+        self.open_video_button.setVisible(True)
+        self.open_output_button.setVisible(True)
+        self.open_video_button.setEnabled(True)
+        self.open_output_button.setEnabled(True)
+
+    def open_final_video(self) -> None:
+        if self.latest_result is None:
+            return
+
+        QDesktopServices.openUrl(
+            QUrl.fromLocalFile(str(self.latest_result.final_video))
+        )
+
+    def open_output_folder(self) -> None:
+        if self.latest_result is None:
+            return
+
+        QDesktopServices.openUrl(
+            QUrl.fromLocalFile(str(self.latest_result.output_dir))
+        )
+
     def start_job(self) -> None:
         if self.is_job_active():
             return
@@ -154,7 +216,7 @@ class MainWindow(QMainWindow):
 
         self.status = JobStatus.RUNNING
         self._terminal_message = None
-        self.result_label.clear()
+        self.clear_result_ui()
         self.set_inputs_enabled(False)
         self.start_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
@@ -178,11 +240,11 @@ class MainWindow(QMainWindow):
     def on_success(self, result: PipelineResult) -> None:
         self.status = JobStatus.COMPLETE
         self.status_panel.set_status("Done", busy=False)
-        self.result_label.setText(f"Finished video: {result.final_video}")
+        self.show_result_ui(result)
         self._terminal_message = "Done"
 
     def on_failure(self, failure: JobFailure) -> None:
-        self.result_label.clear()
+        self.clear_result_ui()
         if failure.error_type == "PipelineCancelledError":
             self.status = JobStatus.IDLE
             self.status_panel.set_status("Cancelled", busy=False)
@@ -217,7 +279,7 @@ class MainWindow(QMainWindow):
         self.cancel_token = None
         self.cancel_button.setEnabled(False)
         self.set_inputs_enabled(True)
-        self.refresh_ready_state()
+        self.update_start_enabled_from_selection()
         if terminal_message is not None:
             self.status_panel.set_status(terminal_message, busy=False)
             self._terminal_message = None
