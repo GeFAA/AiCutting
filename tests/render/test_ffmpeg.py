@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from aicutting.core.errors import ExternalToolError
-from aicutting.core.models import Timeline, TimelineClip, Transition, TransitionType
+from aicutting.core.models import LocationTitle, Timeline, TimelineClip, Transition, TransitionType
 from aicutting.render.ffmpeg import build_ffmpeg_command, render_timeline
 
 
@@ -116,6 +116,16 @@ def test_build_ffmpeg_command_mixes_hard_cuts_and_dissolves() -> None:
 
     assert "[v0][v1]concat=n=2:v=1:a=0[x1]" in filter_complex
     assert "[x1][v2]xfade=transition=fade:duration=0.35:offset=7.65[vout]" in filter_complex
+
+
+def test_build_ffmpeg_command_adds_title_overlay_when_present() -> None:
+    timeline = _timeline()
+    timeline = timeline.model_copy(
+        update={"title": LocationTitle(title="Madeira Coast", subtitle="Portugal", confidence=0.9)}
+    )
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+    assert "drawtext=" in filter_complex
 
 
 def test_render_timeline_wraps_missing_ffmpeg(
