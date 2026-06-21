@@ -92,3 +92,28 @@ def test_rank_candidates_interleaves_source_assets() -> None:
         "a.mp4",
         "b.mp4",
     ]
+
+
+def test_rank_candidates_prefers_usability_when_available() -> None:
+    technically_clean_but_bad_motion = ClipCandidate(
+        asset_path=Path("clean.mp4"),
+        start_s=0,
+        end_s=5,
+        quality_score=0.95,
+        motion_score=0.2,
+        diversity_key="clean:0",
+        usability_score=0.25,
+    )
+    usable_drone_move = ClipCandidate(
+        asset_path=Path("usable.mp4"),
+        start_s=10,
+        end_s=15,
+        quality_score=0.75,
+        motion_score=0.6,
+        diversity_key="usable:1",
+        usability_score=0.92,
+    )
+
+    ranked = rank_candidates([technically_clean_but_bad_motion, usable_drone_move])
+
+    assert ranked[0] == usable_drone_move

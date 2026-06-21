@@ -2,7 +2,7 @@ from aicutting.core.models import ClipCandidate
 
 
 def rank_candidates(candidates: list[ClipCandidate]) -> list[ClipCandidate]:
-    ranked = sorted(candidates, key=lambda candidate: candidate.composite_score, reverse=True)
+    ranked = sorted(candidates, key=lambda candidate: candidate.director_score, reverse=True)
     diversified: list[ClipCandidate] = []
     used_keys: set[str] = set()
     deferred: list[ClipCandidate] = []
@@ -30,7 +30,7 @@ def _interleave_source_assets(candidates: list[ClipCandidate]) -> list[ClipCandi
         ]
         selected_asset, selected_candidate = max(
             selectable,
-            key=lambda item: item[1].composite_score,
+            key=lambda item: item[1].director_score,
         )
         output.append(selected_candidate)
         previous_asset = selected_asset

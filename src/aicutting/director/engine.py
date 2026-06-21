@@ -1,7 +1,13 @@
 from dataclasses import dataclass
 
 from aicutting.core.models import AnalysisReport, ClipCandidate
-from aicutting.director.models import DirectorDecision, DirectorReport, RejectedSegment
+from aicutting.director.location import choose_renderable_title
+from aicutting.director.models import (
+    DirectorDecision,
+    DirectorReport,
+    LocationSuggestion,
+    RejectedSegment,
+)
 
 
 @dataclass(frozen=True)
@@ -11,7 +17,10 @@ class DirectorOutputs:
     rejected_segments: list[RejectedSegment]
 
 
-def build_director_outputs(report: AnalysisReport) -> DirectorOutputs:
+def build_director_outputs(
+    report: AnalysisReport,
+    location_suggestions: list[LocationSuggestion] | None = None,
+) -> DirectorOutputs:
     accepted: list[ClipCandidate] = []
     rejected: list[RejectedSegment] = []
     decisions: list[DirectorDecision] = []
@@ -54,8 +63,9 @@ def build_director_outputs(report: AnalysisReport) -> DirectorOutputs:
     decisions.sort(key=lambda decision: (decision.selected, decision.score), reverse=True)
     filtered = report.model_copy(update={"candidates": accepted or report.candidates})
     warnings = [] if accepted else ["All candidates were rejected; using fallback candidates."]
+    title = choose_renderable_title(location_suggestions or [])
     return DirectorOutputs(
         analysis=filtered,
-        director_report=DirectorReport(decisions=decisions, warnings=warnings),
+        director_report=DirectorReport(decisions=decisions, warnings=warnings, title=title),
         rejected_segments=rejected,
     )
