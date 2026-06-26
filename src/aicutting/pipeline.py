@@ -7,17 +7,22 @@ from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.beat_plan import build_beat_plan
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
-from aicutting.analysis.screenshots import extract_location_keyframes
+from aicutting.analysis.screenshots import (
+    build_contact_sheets,
+    extract_location_keyframes,
+    sample_footage_moments,
+)
 from aicutting.analysis.video import build_candidates_from_scenes, score_candidates_from_video
 from aicutting.core.artifacts import write_json_model, write_json_models
-from aicutting.core.models import AnalysisReport, ClipCandidate, DroneShotType, Timeline
+from aicutting.core.models import AnalysisReport, ClipCandidate, CutPlan, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
-from aicutting.director.drone_models import Director2Report, ShotCandidateArtifact
+from aicutting.director.edit_agent import decide_edit, rate_moments
+from aicutting.director.edit_models import Director3Report, FootageMoment, MomentRating
 from aicutting.director.engine import build_director_outputs
 from aicutting.director.location import resolve_location_suggestions
-from aicutting.planning.effects import build_effect_plan
-from aicutting.planning.engine import build_cut_plan
-from aicutting.planning.story import build_story_plan
+from aicutting.planning.assemble import assemble_cut_plan, fallback_edit
+from aicutting.planning.duration import choose_target_duration
+from aicutting.planning.rhythm import build_rhythm_grid
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.resolve.export import export_resolve_handoff
 
@@ -88,7 +93,7 @@ class CutPipeline:
         )
 
         emit_progress(progress, PipelinePhase.PLANNING_CUT, step=2, total=4)
-        plan = build_cut_plan(director_outputs.analysis)
+        plan = _build_director_3_plan(director_outputs.analysis, output_dir)
         if director_outputs.director_report.title is not None:
             plan = plan.model_copy(
                 update={
@@ -107,52 +112,6 @@ class CutPipeline:
             output_dir / "rejected-segments.json", director_outputs.rejected_segments
         )
         write_json_models(output_dir / "location-suggestions.json", location_suggestions)
-
-        if any(
-            candidate.shot_type != DroneShotType.UNKNOWN
-            for candidate in director_outputs.analysis.candidates
-        ):
-            beat_plan = build_beat_plan(report.audio)
-            story_plan = build_story_plan(
-                director_outputs.analysis.candidates, beat_plan, plan.target_duration_s
-            )
-            effect_plan = build_effect_plan(story_plan, beat_plan)
-            shot_artifacts = [
-                _shot_candidate_artifact(candidate) for candidate in report.candidates
-            ]
-            selected_count = sum(1 for item in shot_artifacts if item.selected)
-            rejected_count = sum(1 for item in shot_artifacts if item.rejected)
-            average_score = (
-                round(
-                    sum(item.drone_director_score for item in shot_artifacts)
-                    / len(shot_artifacts),
-                    6,
-                )
-                if shot_artifacts
-                else 0.0
-            )
-            write_json_models(output_dir / "shot-candidates.json", shot_artifacts)
-            write_json_model(output_dir / "beat-plan.json", beat_plan)
-            write_json_model(output_dir / "story-plan.json", story_plan)
-            write_json_model(output_dir / "effect-plan.json", effect_plan)
-            story_windows = [
-                (clip.asset_path, clip.source_start_s, clip.source_end_s)
-                for clip in story_plan.clips
-            ]
-            warnings = (
-                ["Story plan reused clips because of limited usable footage."]
-                if len(set(story_windows)) < len(story_windows)
-                else []
-            )
-            write_json_model(
-                output_dir / "director-2-report.json",
-                Director2Report(
-                    selected_count=selected_count,
-                    rejected_count=rejected_count,
-                    average_drone_director_score=average_score,
-                    warnings=warnings,
-                ),
-            )
 
         emit_progress(progress, PipelinePhase.EXPORTING_RESOLVE_HANDOFF, step=3, total=4)
         self.dependencies.export_resolve(plan.timeline, output_dir)
@@ -179,33 +138,67 @@ def _location_candidates(report: AnalysisReport, limit: int = 3) -> list[ClipCan
     return sorted(candidates, key=lambda candidate: candidate.director_score, reverse=True)[:limit]
 
 
-def _shot_candidate_artifact(candidate: ClipCandidate) -> ShotCandidateArtifact:
-    selected = candidate.rejection_reason is None
-    return ShotCandidateArtifact(
-        asset_path=candidate.asset_path,
-        start_s=candidate.start_s,
-        end_s=candidate.end_s,
-        shot_type=candidate.shot_type,
-        selected=selected,
-        rejected=not selected,
-        rejection_reason=candidate.rejection_reason,
-        technical_score=(
-            candidate.technical_score
-            if candidate.technical_score is not None
-            else candidate.quality_score
-        ),
-        stability_score=candidate.smoothness_score or 0.0,
-        composition_score=candidate.composition_score or 0.0,
-        motion_intent_score=(
-            candidate.motion_intent_score
-            if candidate.motion_intent_score is not None
-            else candidate.motion_score
-        ),
-        reveal_score=candidate.reveal_score or 0.0,
-        novelty_score=candidate.novelty_score or 0.0,
-        drone_director_score=candidate.director_score,
-        reasons=[
-            f"{candidate.shot_type.value} score {candidate.director_score:.2f}",
-            candidate.rejection_reason or "selected",
-        ],
+def _build_director_3_plan(analysis: AnalysisReport, output_dir: Path) -> CutPlan:
+    media = analysis.media
+    beat_plan = build_beat_plan(analysis.audio)
+    total = analysis.audio.duration_s or sum(c.duration_s for c in analysis.candidates) or 1.0
+    slots = build_rhythm_grid(beat_plan, choose_target_duration(total))
+    backends = detect_agent_backends()
+    moments = sample_footage_moments(media)
+    moment_index: dict[str, FootageMoment] = {moment.moment_id: moment for moment in moments}
+    sheets = (
+        build_contact_sheets(moments, output_dir / "contact-sheets")
+        if moments and any(backend.available for backend in backends)
+        else []
     )
+    ratings = rate_moments(sheets, backends, output_dir) if sheets else []
+    kept = [rating for rating in ratings if rating.keep]
+    edit = decide_edit(kept, slots, backends, output_dir) if kept else None
+    used_agent = edit is not None
+    if edit is None:
+        fallback_ratings, fallback_moments = _ratings_from_candidates(analysis.candidates)
+        moment_index = fallback_moments
+        ratings = ratings or fallback_ratings
+        edit = fallback_edit(fallback_ratings, slots)
+    plan = assemble_cut_plan(edit, slots, moment_index, media)
+    write_json_models(output_dir / "footage-ratings.json", ratings)
+    write_json_models(output_dir / "rhythm-grid.json", slots)
+    write_json_model(output_dir / "edit-decision.json", edit)
+    write_json_model(
+        output_dir / "director-3-report.json",
+        Director3Report(
+            used_agent=used_agent,
+            backend=next((backend.name for backend in backends if backend.available), None),
+            rated_moments=len(ratings),
+            kept_moments=sum(1 for rating in ratings if rating.keep),
+            timeline_clips=len(plan.timeline.clips),
+            warnings=[] if plan.timeline.clips else ["No clips could be assembled."],
+        ),
+    )
+    return plan
+
+
+def _ratings_from_candidates(
+    candidates: list[ClipCandidate],
+) -> tuple[list[MomentRating], dict[str, FootageMoment]]:
+    ratings: list[MomentRating] = []
+    moments: dict[str, FootageMoment] = {}
+    for index, candidate in enumerate(candidates):
+        if candidate.rejection_reason:
+            continue
+        moment_id = f"c{index:03d}"
+        ratings.append(
+            MomentRating(
+                moment_id=moment_id,
+                cinematic_score=candidate.director_score,
+                shot_type=candidate.shot_type,
+                keep=True,
+                reason="deterministic fallback",
+            )
+        )
+        moments[moment_id] = FootageMoment(
+            moment_id=moment_id,
+            asset_path=candidate.asset_path,
+            timestamp_s=round((candidate.start_s + candidate.end_s) / 2, 3),
+        )
+    return ratings, moments

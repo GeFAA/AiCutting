@@ -277,32 +277,36 @@ def test_pipeline_writes_high_confidence_agent_location_to_timeline(
     assert suggestions[0]["title"] == "Madeira Coast"
 
 
-def test_pipeline_writes_drone_director_20_artifacts(tmp_path: Path) -> None:
+def test_pipeline_writes_drone_director_3_artifacts_with_fallback(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "out"
     input_dir.mkdir()
     video = input_dir / "clip.mp4"
     video.write_text("", encoding="utf-8")
     report = AnalysisReport(
-        media=[MediaAsset(path=video, duration_s=20, width=1920, height=1080, fps=25)],
+        media=[MediaAsset(path=video, duration_s=60, width=1920, height=1080, fps=25)],
         candidates=[
             ClipCandidate(
-                asset_path=video,
-                start_s=2,
-                end_s=7,
-                quality_score=0.9,
-                motion_score=0.7,
-                diversity_key="clip:0",
-                shot_type=DroneShotType.REVEAL,
-                drone_director_score=0.9,
-                reveal_score=0.85,
-                novelty_score=0.7,
-                technical_score=0.8,
-                motion_intent_score=0.9,
-            )
+                asset_path=video, start_s=20, end_s=25, quality_score=0.9, motion_score=0.7,
+                diversity_key="c0", shot_type=DroneShotType.REVEAL, drone_director_score=0.9,
+            ),
+            ClipCandidate(
+                asset_path=video, start_s=30, end_s=35, quality_score=0.85, motion_score=0.6,
+                diversity_key="c1", shot_type=DroneShotType.APPROACH, drone_director_score=0.85,
+            ),
+            ClipCandidate(
+                asset_path=video, start_s=40, end_s=45, quality_score=0.8, motion_score=0.5,
+                diversity_key="c2", shot_type=DroneShotType.ESTABLISHING, drone_director_score=0.8,
+            ),
         ],
-        audio=AudioAnalysis(path=None, duration_s=8.0, beats_s=[0, 2, 4, 6], energy=[0.2, 0.8]),
+        audio=AudioAnalysis(
+            path=None, duration_s=12.0, beats_s=[0, 1, 2, 3, 4, 5, 6, 7, 8], energy=[0.2, 0.9]
+        ),
     )
+    # No agent on PATH -> deterministic fallback editor.
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
     deps = PipelineDependencies(
         analyze=lambda input_path, music_path: report,
         render=lambda timeline, output_path, music_path: None,
@@ -311,8 +315,10 @@ def test_pipeline_writes_drone_director_20_artifacts(tmp_path: Path) -> None:
 
     CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=True)
 
-    assert (output_dir / "shot-candidates.json").exists()
-    assert (output_dir / "beat-plan.json").exists()
-    assert (output_dir / "story-plan.json").exists()
-    assert (output_dir / "effect-plan.json").exists()
-    assert (output_dir / "director-2-report.json").exists()
+    assert (output_dir / "rhythm-grid.json").exists()
+    assert (output_dir / "footage-ratings.json").exists()
+    assert (output_dir / "edit-decision.json").exists()
+    assert (output_dir / "director-3-report.json").exists()
+    plan = json.loads((output_dir / "cut-plan.json").read_text(encoding="utf-8"))
+    assert plan["style"] == "ai_drone_director_30"
+    assert len(plan["timeline"]["clips"]) >= 1
