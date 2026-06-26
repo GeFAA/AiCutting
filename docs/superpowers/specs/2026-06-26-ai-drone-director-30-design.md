@@ -1,4 +1,4 @@
-# AI Drone Director 3.0 — Design
+# AI Drone Director 3.0 — Design (agent-driven)
 
 ## Why
 
@@ -6,171 +6,154 @@ The 2.0 director path produces unprofessional output on real footage. Evidence f
 `Downloads\est-aicutting-output` (real run):
 
 - **Length:** the timeline has exactly **4 clips × 5 s = 20 s** while `target_duration_s = 180`.
-  `_build_drone_director_20_plan` emits only the 4 story-arc clips and ignores the music/target
-  length entirely. This is the core defect.
-- **Bad footage selected:** a near-takeoff window (`src 7–12 s` of a source file) was used. The
-  motion classifier is a crude bright-centroid proxy and lets gentle takeoff/landing descents
-  through as `pull_back`/`top_down`.
-- **Feels random:** 4 clips are picked from 64 "good" candidates by a shaky per-role heuristic;
-  every transition is a `hard_cut` and nothing is beat-synced.
+  `_build_drone_director_20_plan` emits only the 4 story-arc clips and ignores the music length.
+- **Bad footage selected:** a near-takeoff window (`src 7–12 s`) was used; the crude bright-centroid
+  motion classifier cannot tell a gentle landing/takeoff from a `pull_back`/`top_down`.
+- **Feels random:** 4 clips picked from 64 "good" candidates by a shaky heuristic; every transition
+  is `hard_cut`, nothing beat-synced.
 
-Note: the codex/claude screenshot location pipeline IS integrated and working (the run produced
-`location-agent-response.codex.json`, `location-screenshots/`, and a real suggestion). That part
-is out of scope here.
+The codex/claude screenshot pipeline is already integrated and working (the run produced
+`location-agent-response.codex.json`, `location-screenshots/`, a real suggestion). 3.0 leans into
+that capability.
 
 ## Goal
 
-Replace the 4-clip story arc with a **professional, full-length, beat-driven, curated edit**:
-fill the whole music track, cut on the beat with energy-driven pacing, robustly reject bad
-footage (takeoff/landing/jitter/search), curate for quality and variety (not random), and apply
-**strong, real effects only where they fit**. Deterministic and local; the codex location titles
-stay as-is.
+A **professional, full-length, beat-driven edit whose creative judgment is made by the local
+vision agent (codex, fallback claude)** — the agent that can actually *see* the frames — rather
+than by brittle deterministic heuristics. Deterministic code is kept to the minimum where it is
+genuinely better than an LLM (beat timing from audio, timeline assembly, FFmpeg rendering) and as
+an offline fallback.
 
-## Requirements (from brainstorming)
+## Requirements
 
-1. **Length = music length.** The cut fills the whole song, beat-synced, ending when the music ends.
-2. **Pacing = dynamic by energy.** Calm passages → longer clips (a few beats); drops/peaks → fast
-   cuts (½–1 beat). Cuts always land on beats.
-3. **Effects = as impressive as possible, but only when they fit.** Clean beat cuts are the
-   backbone; at drops/peaks with matching shot motion, apply real effects (zoom push-in, speed
-   accent, whip/slide transition, match-cut). Confidence-gated and frequency-limited.
-4. **No bad footage.** Strict rejection of takeoff, landing, search-flight, unstable yaw, jitter,
-   and low technical quality.
-5. **Not random.** No duplicate/overlapping source windows, no same shot type back-to-back, spread
-   across all source files, intensity matched to music energy.
+1. **Length = music length**, beat-synced; fills the whole song. Fixes the 20 s.
+2. **Pacing = dynamic by energy** (calm → longer clips, drops → fast cuts), cuts on beats.
+3. **Effects = as strong as possible, only where they fit** — real zoom/whip/speed at peaks when
+   the shot motion supports it; clean beat cuts otherwise.
+4. **No bad footage** — takeoff, landing, search, shaky, boring are rejected.
+5. **Not random** — varied, well-ordered, intensity matched to the music.
+6. **Decisions are agent-driven (codex/claude), not deterministic.** The agent rates footage,
+   rejects bad moments, selects and orders the edit, and suggests effect moments. Deterministic
+   code only does beat timing, assembly, rendering, and the no-agent fallback.
 
 ## Approach
 
-**Chosen: A — evolve the planner ("AI Drone Director 3.0").** Keep the working 2.0 building blocks
-(shot classification, beat plan, audit artifacts) and replace the weak story-arc selection and the
-placeholder effect rendering with a real beat-driven editor. Rejected: B (full rewrite — too large,
-discards working code) and C (minimal loop patch — keeps random selection and placeholder effects).
+**Chosen: A — evolve the planner into an agent-driven editor ("AI Drone Director 3.0").** Reuse the
+existing agent plumbing (`agents/backends.py`, `analysis/screenshots.py`, the codex/claude
+`exec --image … --output-schema` pattern from `director/location.py`) and extend it from "location
+titles" to "edit decisions". Keep beat detection, assembly, and rendering deterministic. Rejected:
+a purely deterministic editor (the crude classifier is exactly what failed) and a from-scratch ML
+pipeline (too large).
 
 ## Architecture
 
-New deterministic stages, wired into `build_cut_plan` for drone material (style
-`ai_drone_director_30`):
-
 ```
-AudioAnalysis ─┐
-               ▼
-         beat_plan (existing)
-               ▼
-      rhythm grid  (NEW planning/rhythm.py)   → ordered beat-snapped slots over full song
-               ▼
-   curated selection (NEW planning/selection.py) → best non-repeating candidate per slot
-               ▼
-     effect plan (planning/effects.py, reworked) → gated real effects per cut
-               ▼
-        timeline   (planning/engine.py)        → TimelineClips with effects
-               ▼
-     ffmpeg render (render/ffmpeg.py, reworked) → real zoompan / xfade-variety / speed
+videos ─► keyframes + contact sheets (det.)
+music  ─► beat/energy grid (det.)
+                 │
+        ┌────────┴─────────┐
+        ▼                  ▼
+  AGENT: rate footage   AGENT: design the edit
+  (codex sees frames,   (given kept moments +
+   per-moment quality,   music structure → ordered
+   shot type, keep/      clip list, arc, effect
+   reject + reason)      moments)
+        └────────┬─────────┘
+                 ▼
+   deterministic assembly onto the beat grid ─► Timeline ─► real FFmpeg render
+                 ▲
+        deterministic fallback editor (used only if no agent / agent fails)
 ```
 
-Each unit has one purpose and a clear interface, testable in isolation.
+### 1. Keyframe + contact-sheet extraction (deterministic — `analysis/screenshots.py` extended)
 
-### 1. Candidate generation & rejection (`analysis/video.py`, `analysis/drone_shots.py`)
+Sample frames across each source file (respecting a takeoff/landing trim of the first/last ~12 s),
+labelled with their source file + timestamp, and tile them into **contact sheets** (grids of
+~12–16 thumbnails) so one vision call covers many moments. Sampling density is bounded so the total
+number of agent calls stays small (target ≤ ~15 calls for a full project).
 
-- **Takeoff/landing trim:** do not generate candidate windows within the first/last
-  `TAKEOFF_LANDING_TRIM_S` (default 12 s) of each source file — that is where takeoff and landing
-  occur. Guard: if a file is shorter than `2 × trim + min_window`, fall back to a proportional trim
-  so short clips still yield candidates.
-- **Denser candidates:** reduce the window stride (e.g. 2.5 s) so there are many unique windows to
-  fill a full-song grid without repetition.
-- **Stricter rejection:** keep motion rejection (jitter / search / unstable / edge takeoff-landing)
-  and the `searching` override; add a technical-quality floor (sharpness+contrast) below which a
-  candidate is rejected. Rejected candidates are still recorded in `shot-candidates.json`.
+### 2. Agent footage rating (`director/edit_agent.py` NEW — codex/claude)
 
-### 2. Rhythm grid (`planning/rhythm.py`, NEW)
+For each contact sheet, the agent receives the image + a strict JSON schema and acts as a
+professional drone editor: per labelled moment it returns `cinematic_score` (0–1), `shot_type`,
+`keep` (bool) and a `reason` (e.g. "landing", "takeoff", "boring sky", "shaky", "strong reveal").
+This **replaces** the bright-centroid classifier as the source of quality/rejection truth. Calls
+are batched, results cached to disk per project, and parsed with the existing
+`parse_*_agent_response` robustness (fenced JSON, result-wrapper, etc.).
 
-`build_rhythm_grid(beat_plan, target_duration_s) -> list[RhythmSlot]`.
+### 3. Beat/energy grid (deterministic — `planning/rhythm.py` NEW)
 
-- Walks the beats across the **whole** music duration (capped at `target_duration_s`).
-- Each slot spans an integer number of beats chosen from local energy: high energy → 1 beat
-  (or ½ on strong drops), low energy → 3–4 beats. Slot boundaries are exact beat timestamps.
-- Each `RhythmSlot` carries: `start_s`, `end_s` (timeline), `duration_s`, `energy`, `section`
-  label, and `is_accent` (peak/drop → eligible for effects).
-- No music → a default visual grid (~2.5 s slots) covering a footage-derived target duration.
+Music → a sequence of beat-snapped slots covering the whole song; slot length follows local energy
+(high → ½–1 beat, low → 3–4 beats). Each slot carries `start/end`, `energy`, `section`, `is_accent`.
+This stays deterministic — beat detection is math the LLM cannot do from frames. No music → a
+default visual grid over a footage-derived duration.
 
-### 3. Curated selection (`planning/selection.py`, NEW)
+### 4. Agent edit decision (`director/edit_agent.py` — codex/claude)
 
-`select_clips(slots, candidates) -> list[SelectedClip]`.
+A second agent call receives the **kept, rated moments** (file, timestamp, score, shot type) plus a
+compact description of the **music structure** (duration, number of slots, per-section energy) and
+returns the **ordered edit**: which moment fills each slot/section, the overall arc, and which cuts
+should get a strong effect (and which kind). This is the creative editing decision, made by the
+agent. Output is a strict JSON schema, validated and parsed.
 
-- Accepted candidates only (rejection already applied).
-- Greedy per slot, scored by: shot-type ↔ slot-energy fit (calm → establishing/top_down/orbit;
-  high → reveal/approach/fly_through), `drone_director_score`, and variety penalties.
-- **Hard constraints:** never reuse the same source window; never the same `shot_type` as the
-  immediately previous slot; cap consecutive clips from one source file (spread).
-- **Reuse policy:** if unique candidates run out before the grid is full, allow a window to repeat
-  only with a minimum spacing (e.g. ≥ 20 s apart) and prefer a different sub-segment; if even that
-  is exhausted, end the edit early rather than pad with garbage (and warn).
-- Each `SelectedClip` records the chosen source sub-segment (slot duration taken from the candidate)
-  and the reason.
+### 5. Deterministic assembly (`planning/engine.py`)
 
-### 4. Effect planning (`planning/effects.py`, reworked)
+Map the agent's ordered moments onto the beat grid: each chosen moment becomes a `TimelineClip` of
+its slot's duration, with the transition/effect the agent (or the gating rules) assigned. Enforce
+safety invariants the agent might violate: no duplicate/overlapping source window, no two identical
+shots back-to-back, spread across files, slot durations from the grid. `build_cut_plan` routes drone
+material here; style `ai_drone_director_30`.
 
-`build_effect_plan(selected, slots) -> EffectPlan`.
+### 6. Real effect rendering (`render/ffmpeg.py`, reworked)
 
-- Backbone: `HARD_CUT` on every beat boundary.
-- At `is_accent` slots **and** when shot motion supports it, choose one real effect:
-  - forward motion (approach/reveal/fly_through) on a peak → **smooth push-in (zoompan)** +
-    `SMOOTH_ZOOM` transition,
-  - strong lateral (tracking/orbit) on a drop → **whip/slide** transition,
-  - two adjacent shots with aligned motion → **match-cut** (hard cut, motion-matched),
-  - calm intro/outro → **dissolve**.
-- Frequency cap: no two effect cuts back-to-back; a max effect ratio (e.g. ≤ 30 % of cuts) so
-  effects stay special. Each decision is confidence-gated and carries its parameters.
+Replace the placeholder "everything is `fade`" with real, verified filters: the actual `xfade`
+transition catalogue (`fade`, `fadeblack`, `smoothleft`, `slideup`, `circleopen`, …), `zoompan`
+push-in on accented clips, and a `setpts` speed accent. Each effect kind is smoke-tested against
+real FFmpeg; any risky effect falls back to a clean hard cut rather than failing the render.
 
-### 5. Real effect rendering (`render/ffmpeg.py`, reworked)
+### 7. Deterministic fallback editor
 
-Replace the placeholder "everything renders as `fade`" with real filters, each verified against
-real ffmpeg (like the earlier drawtext fix):
+If no codex/claude backend is available, or every agent call fails, the pipeline falls back to a
+deterministic editor (rhythm grid + score-based selection using the existing drone-shot scores) so
+it always produces a full-length edit offline. The fallback is clearly flagged in the report.
 
-- **Transitions:** use the actual `xfade` transition catalogue (`fade`, `fadeblack`, `smoothleft`,
-  `slideup`, `circleopen`, …) mapped per effect kind, not just `fade`.
-- **Push-in / zoom:** `zoompan` on the incoming clip for a gradual punch-in over its duration.
-- **Speed accent:** `setpts` to speed up (or briefly slow) an accented clip for emphasis.
-- Filtergraph is assembled and validated; a real render smoke test confirms each effect parses and
-  produces video. Risky filters fall back to a clean hard cut rather than failing the render.
+### 8. Integration & artifacts (`pipeline.py`)
 
-### 6. Integration (`planning/engine.py`, `pipeline.py`)
-
-- `build_cut_plan` routes drone material (any `shot_type != UNKNOWN`) to `build_director_3_plan`,
-  which runs grid → selection → effects → timeline. Style `ai_drone_director_30`; notes updated.
-- The legacy (non-drone) path is unchanged.
-- Pipeline keeps all audit artifacts (`shot-candidates.json`, `beat-plan.json`, an updated
-  `edit/story-plan`, `effect-plan.json`, `director-…-report.json`) and the codex location titles.
+Keep all audit artifacts and add agent-decision artifacts: `footage-ratings.json` (agent per-moment
+ratings), `edit-decision.json` (agent's ordered edit + effect moments), the contact sheets on disk,
+plus the existing `beat-plan.json`, `effect-plan.json`, timeline, and a `director-3-report.json`
+summarising agent-vs-fallback, counts, and warnings. The codex location-title pipeline is unchanged.
 
 ## Data flow
 
-`AnalysisReport` (with drone shot fields) → `beat_plan` → `rhythm grid` → `selection` →
-`effect plan` → `Timeline` (`TimelineClip`s carrying transition + effect params) → ffmpeg render +
-Resolve export. JSON artifacts written at each stage for auditability.
+`videos → keyframes/contact-sheets`; `music → beat grid`; `contact-sheets → agent ratings`;
+`(ratings + music structure) → agent edit decision`; `edit decision + grid → Timeline`;
+`Timeline → FFmpeg render + Resolve export`. JSON artifacts written at each stage.
 
-## Error handling / edge cases
+## Tradeoffs (explicit — agent-driven)
 
-- **No music:** default visual rhythm grid; effects limited to the calm set.
-- **Too little footage:** spacing-limited reuse; if still short, produce a shorter edit + a report
-  warning rather than padding with rejected footage.
-- **Single source file:** trim still applied; variety enforced across windows of that file.
-- **Effect render failure:** per-effect fallback to a clean hard cut; the overall render never fails
-  because of an effect.
+- **Speed:** several vision calls per project (a few minutes), vs near-instant deterministic.
+  Mitigated by contact-sheet batching (≤ ~15 calls), disk caching, and bounded sampling.
+- **Non-deterministic:** same input can yield slightly different edits. Accepted (this is the point);
+  the cached agent responses make a given run reproducible.
+- **Requires an agent:** codex/claude must be on PATH; otherwise the deterministic fallback runs.
+- **Cost/quota:** uses the local agent's quota.
 
 ## Testing
 
-- **rhythm:** grid fills (≈) the full music duration; slots snap to beats; durations track energy.
-- **trim/rejection:** candidates inside takeoff/landing zones are excluded; quality floor rejects
-  low-detail frames.
-- **selection:** no duplicate windows; no same shot type back-to-back; spread across files; fills the
-  grid; reuse only with spacing.
-- **effects:** effects only at accents and when motion fits; frequency cap respected.
-- **ffmpeg:** each effect kind renders under real ffmpeg (smoke test); fallbacks work.
-- **real footage:** full run on `Downloads\est` → length ≈ music, zero takeoff/landing in the
-  timeline, varied non-repeating cuts, effects only at peaks; render a preview and watch it.
+- **Deterministic units** (full coverage): contact-sheet tiling, beat grid fills the song, assembly
+  invariants (no duplicate/adjacent-same/over-length), trim excludes edge zones, effect rendering
+  smoke tests under real FFmpeg, fallback editor.
+- **Agent boundary** (mock the runner, like `test_location.py`): prompt/schema construction, response
+  parsing (valid, fenced, wrapped, malformed → safe fallback), and that ratings/edits flow into the
+  timeline. The agent's *judgment* is not asserted (non-deterministic).
+- **Real footage end-to-end** with actual codex on `Downloads\est`: length ≈ music, zero
+  takeoff/landing in the timeline, varied non-repeating cuts, effects only at fitting peaks; render
+  a preview and watch it.
 
 ## Out of scope
 
-- ML/optical-flow shot understanding (the bright-centroid proxy is improved by trimming + stricter
-  rules, not replaced).
-- True keyframed speed ramps (a constant speed accent is used instead).
+- Replacing librosa beat detection.
+- True keyframed speed ramps (constant speed accent instead).
 - Changes to the codex/claude location-title pipeline.
+- Fine-tuning or training any model (we prompt the existing local agents).
