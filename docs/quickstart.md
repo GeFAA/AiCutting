@@ -58,6 +58,11 @@ Typical output files:
 - `director-report.json`: selection decisions and warnings.
 - `rejected-segments.json`: rejected footage with reasons.
 - `location-suggestions.json`: optional location title suggestions.
+- `shot-candidates.json`: drone shot types, scores, and rejection reasons.
+- `beat-plan.json`: beat targets, energy sections, and cut density.
+- `story-plan.json`: selected edit arc.
+- `effect-plan.json`: transition and animation choices.
+- `director-2-report.json`: summary metrics for AI Drone Director 2.0.
 - `resolve/`: FCPXML, EDL, and media manifest for DaVinci Resolve.
 
 ## Command Line Usage

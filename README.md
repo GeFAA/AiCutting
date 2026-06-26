@@ -19,6 +19,13 @@ FFmpeg render path, Resolve handoff artifacts, motion rejection, beat-aware
 planning, and optional local agent location titles are implemented and covered
 by automated tests. The user experience is still being refined.
 
+### AI Drone Director 2.0
+
+The 2.0 director path is drone-only. It adds richer drone shot classification,
+beat planning, story arc planning, motion-aware effect decisions, and review
+artifacts. It is designed to improve raw-moment selection before adding visual
+effects.
+
 ## Highlights
 
 - Local video analysis for drone and landscape B-roll.
