@@ -73,3 +73,7 @@ def cut(
     typer.echo(f"Cut plan: {result.cut_plan}")
     typer.echo(f"Timeline: {result.timeline}")
     typer.echo(f"Final video: {result.final_video}")
+
+
+if __name__ == "__main__":
+    app()
