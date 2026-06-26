@@ -10,9 +10,13 @@ It is Windows-first for the MVP, uses deterministic analysis and timeline planni
 - Optionally analyzes a music track for beat and energy information.
 - Builds an adaptive clean cinematic timeline.
 - Writes `analysis.json`, `cut-plan.json`, and `timeline.json`.
+- Extracts review screenshots from strong footage candidates and asks a local
+  Codex/Claude backend for a conservative location title.
+- Renders location text only when the agent returns high confidence.
 - Renders `final.mp4` with FFmpeg.
 - Exports Resolve handoff files under `resolve/`.
-- Detects local Codex and Claude Code backends for optional agent workflows.
+- Writes director artifacts such as `director-report.json`,
+  `rejected-segments.json`, and `location-suggestions.json`.
 
 ## Install For Development
 
@@ -58,6 +62,11 @@ aicutting cut ./input --out ./out --dry-run
 ## External Tools
 
 Install FFmpeg and ensure `ffmpeg` and `ffprobe` are available on `PATH`.
+
+For automatic location titles, install either Codex or Claude Code on `PATH`.
+Codex is preferred when both are available because it can receive extracted
+screenshots directly. If no agent backend is available, AiCutting still runs and
+omits the title overlay safely.
 
 DaVinci Resolve handoff starts with FCPXML, EDL, and a media manifest. Full Resolve scripting is intentionally separated from the first deterministic handoff path.
 
