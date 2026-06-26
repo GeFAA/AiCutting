@@ -156,7 +156,13 @@ def _build_director_3_plan(analysis: AnalysisReport, output_dir: Path) -> CutPla
     edit = decide_edit(kept, slots, backends, output_dir) if kept else None
     used_agent = edit is not None
     if edit is None:
-        fallback_ratings, fallback_moments = _ratings_from_candidates(analysis.candidates)
+        durations = {asset.path: asset.duration_s for asset in media}
+        safe = [
+            candidate
+            for candidate in analysis.candidates
+            if _within_safe_zone(candidate, durations.get(candidate.asset_path, 0.0))
+        ]
+        fallback_ratings, fallback_moments = _ratings_from_candidates(safe or analysis.candidates)
         moment_index = fallback_moments
         ratings = ratings or fallback_ratings
         edit = fallback_edit(fallback_ratings, slots)
@@ -202,3 +208,14 @@ def _ratings_from_candidates(
             timestamp_s=round((candidate.start_s + candidate.end_s) / 2, 3),
         )
     return ratings, moments
+
+
+def _within_safe_zone(
+    candidate: ClipCandidate, file_duration_s: float, trim_s: float = 12.0
+) -> bool:
+    # Reject windows in the takeoff/landing zone at the very start/end of each source file.
+    if file_duration_s <= 0:
+        return True
+    midpoint = (candidate.start_s + candidate.end_s) / 2
+    edge = min(trim_s, file_duration_s * 0.1)
+    return edge <= midpoint <= file_duration_s - edge

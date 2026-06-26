@@ -97,3 +97,21 @@ def test_fallback_edit_assigns_without_repeats() -> None:
     chosen = [c.moment_id for c in edit.clips]
     assert len(chosen) == len(set(chosen))
     assert len(edit.clips) == 3
+
+
+def test_fallback_edit_assigns_energy_effects() -> None:
+    slots = _slots(2)  # slot 0 calm (not accent), slot 1 accent
+    kept = [
+        MomentRating(
+            moment_id="m1", cinematic_score=0.9, shot_type=DroneShotType.REVEAL, keep=True,
+            reason="",
+        ),
+        MomentRating(
+            moment_id="m2", cinematic_score=0.8, shot_type=DroneShotType.ESTABLISHING, keep=True,
+            reason="",
+        ),
+    ]
+    edit = fallback_edit(kept, slots)
+    effects = {clip.slot_index: clip.effect for clip in edit.clips}
+    assert TransitionType.SMOOTH_ZOOM in effects.values()  # accent + energetic shot
+    assert TransitionType.DISSOLVE in effects.values()  # calm + establishing shot

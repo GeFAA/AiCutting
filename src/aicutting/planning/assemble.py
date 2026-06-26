@@ -35,11 +35,19 @@ def fallback_edit(kept: list[MomentRating], slots: list[RhythmSlot]) -> EditDeci
             EditClip(
                 slot_index=slot.index,
                 moment_id=choice.moment_id,
-                effect=TransitionType.HARD_CUT,
+                effect=_fallback_effect(slot, choice.shot_type),
                 reason=f"{choice.shot_type.value} fallback",
             )
         )
     return EditDecision(arc="deterministic fallback", clips=clips)
+
+
+def _fallback_effect(slot: RhythmSlot, shot_type: DroneShotType) -> TransitionType:
+    if slot.is_accent and shot_type in _ENERGETIC:
+        return TransitionType.SMOOTH_ZOOM
+    if slot.energy <= 0.35 and shot_type in _CALM:
+        return TransitionType.DISSOLVE
+    return TransitionType.HARD_CUT
 
 
 def _best(

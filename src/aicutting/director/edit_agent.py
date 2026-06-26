@@ -97,17 +97,19 @@ def rate_moments(
     available = _preferred_available_backends(backends)
     if not available or not sheets:
         return []
-    backend = available[0]
     workdir.mkdir(parents=True, exist_ok=True)
     schema_path = workdir / "edit-rating-schema.json"
     schema_path.write_text(json.dumps(rating_schema(), indent=2), encoding="utf-8")
-    ratings: list[MomentRating] = []
-    for index, sheet in enumerate(sheets, start=1):
-        try:
-            ratings.extend(_rate_one(backend, sheet, schema_path, workdir, index, runner))
-        except Exception:  # one bad sheet must not abort the batch
-            continue
-    return ratings
+    for backend in available:  # try each backend; fall through if one (e.g. codex) is broken
+        ratings: list[MomentRating] = []
+        for index, sheet in enumerate(sheets, start=1):
+            try:
+                ratings.extend(_rate_one(backend, sheet, schema_path, workdir, index, runner))
+            except Exception:  # one bad sheet must not abort the batch
+                continue
+        if ratings:
+            return ratings
+    return []
 
 
 def _rate_one(
@@ -250,12 +252,25 @@ def decide_edit(
     available = _preferred_available_backends(backends)
     if not available or not kept or not slots:
         return None
-    backend = available[0]
     workdir.mkdir(parents=True, exist_ok=True)
     schema_path = workdir / "edit-decision-schema.json"
-    response_path = workdir / "edit-decision.raw.json"
     schema_path.write_text(json.dumps(edit_schema(), indent=2), encoding="utf-8")
     prompt = build_edit_prompt(kept, slots)
+    for backend in available:  # try each backend; fall through if one (e.g. codex) is broken
+        edit = _decide_one(backend, prompt, schema_path, workdir, runner)
+        if edit is not None:
+            return edit
+    return None
+
+
+def _decide_one(
+    backend: AgentBackend,
+    prompt: str,
+    schema_path: Path,
+    workdir: Path,
+    runner: AgentRunner,
+) -> EditDecision | None:
+    response_path = workdir / f"edit-decision.{backend.name}.json"
     if backend.name == "claude":
         command = [
             _backend_executable(backend),
@@ -294,7 +309,7 @@ def decide_edit(
             timeout=180,
         )
         _raise_for_agent_failure(completed)
-    except Exception:  # fall back to the deterministic editor on any failure
+    except Exception:  # fall through to the next backend / deterministic editor
         return None
     raw = response_path.read_text(encoding="utf-8") if response_path.exists() else completed.stdout
     return parse_edit_response(raw)
