@@ -3,7 +3,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from aicutting.analysis.motion import analyze_motion_frames, reject_bad_motion
+from aicutting.analysis.drone_shots import analyze_drone_shot_frames
+from aicutting.analysis.motion import analyze_motion_frames
 from aicutting.core.models import ClipCandidate, MediaAsset
 
 WINDOW_DURATION_S = 5.0
@@ -67,8 +68,8 @@ def score_candidates_from_video(
                 continue
             quality = round(float(np.mean([score_frame_quality(frame) for frame in frames])), 6)
             motion_result = analyze_motion_frames(frames)
-            rejection = reject_bad_motion(
-                motion_result,
+            drone_result = analyze_drone_shot_frames(
+                frames,
                 starts_near_clip_edge=(
                     candidate.start_s <= 8.0 or asset.duration_s - candidate.end_s <= 8.0
                 ),
@@ -81,10 +82,16 @@ def score_candidates_from_video(
                         "smoothness_score": motion_result.smoothness_score,
                         "jitter_score": motion_result.jitter_score,
                         "movement_score": motion_result.movement_score,
-                        "composition_score": motion_result.composition_score,
+                        "composition_score": drone_result.composition_score,
                         "usability_score": motion_result.usability_score,
                         "movement_type": motion_result.movement_type,
-                        "rejection_reason": rejection,
+                        "shot_type": drone_result.shot_type,
+                        "technical_score": drone_result.technical_score,
+                        "motion_intent_score": drone_result.motion_intent_score,
+                        "reveal_score": drone_result.reveal_score,
+                        "novelty_score": drone_result.novelty_score,
+                        "drone_director_score": drone_result.drone_director_score,
+                        "rejection_reason": drone_result.rejection_reason,
                     }
                 )
             )
