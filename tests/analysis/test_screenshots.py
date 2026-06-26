@@ -4,8 +4,12 @@ import cv2
 import numpy as np
 import pytest
 
-from aicutting.analysis.screenshots import extract_location_keyframes
-from aicutting.core.models import ClipCandidate
+from aicutting.analysis.screenshots import (
+    build_contact_sheets,
+    extract_location_keyframes,
+    sample_footage_moments,
+)
+from aicutting.core.models import ClipCandidate, MediaAsset
 
 
 def _write_tiny_video(path: Path) -> None:
@@ -57,3 +61,47 @@ def test_extract_location_keyframes_skips_missing_assets(tmp_path: Path) -> None
     images = extract_location_keyframes([candidate], tmp_path / "location-screenshots")
 
     assert images == []
+
+
+def test_sample_skips_takeoff_and_landing_zones() -> None:
+    asset = MediaAsset(path=Path("flight.mp4"), duration_s=60.0, width=1920, height=1080, fps=25.0)
+
+    moments = sample_footage_moments([asset], trim_s=12.0, stride_s=4.0, max_moments=48)
+
+    assert moments, "expected sampled moments"
+    assert all(12.0 <= m.timestamp_s <= 48.0 for m in moments)
+    assert len({m.moment_id for m in moments}) == len(moments)
+
+
+def test_build_contact_sheets_tiles_moments(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    asset = MediaAsset(
+        path=tmp_path / "flight.mp4", duration_s=60.0, width=1920, height=1080, fps=25.0
+    )
+    (tmp_path / "flight.mp4").write_text("", encoding="utf-8")
+    moments = sample_footage_moments([asset], trim_s=12.0, stride_s=8.0, max_moments=6)
+
+    class FakeCapture:
+        def isOpened(self) -> bool:
+            return True
+
+        def set(self, prop: int, value: float) -> None:
+            del prop, value
+
+        def read(self) -> tuple[bool, np.ndarray]:
+            return True, np.full((1080, 1920, 3), 128, dtype=np.uint8)
+
+        def release(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        "aicutting.analysis.screenshots.cv2.VideoCapture", lambda _: FakeCapture()
+    )
+
+    sheets = build_contact_sheets(moments, tmp_path / "sheets", per_sheet=4, columns=2)
+
+    assert sheets, "expected contact sheets"
+    assert sheets[0].path.exists()
+    covered = [mid for sheet in sheets for mid in sheet.moment_ids]
+    assert covered == [m.moment_id for m in moments]
