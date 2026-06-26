@@ -135,13 +135,22 @@ class CutPipeline:
             write_json_model(output_dir / "beat-plan.json", beat_plan)
             write_json_model(output_dir / "story-plan.json", story_plan)
             write_json_model(output_dir / "effect-plan.json", effect_plan)
+            story_windows = [
+                (clip.asset_path, clip.source_start_s, clip.source_end_s)
+                for clip in story_plan.clips
+            ]
+            warnings = (
+                ["Story plan reused clips because of limited usable footage."]
+                if len(set(story_windows)) < len(story_windows)
+                else []
+            )
             write_json_model(
                 output_dir / "director-2-report.json",
                 Director2Report(
                     selected_count=selected_count,
                     rejected_count=rejected_count,
                     average_drone_director_score=average_score,
-                    warnings=[],
+                    warnings=warnings,
                 ),
             )
 
@@ -180,10 +189,18 @@ def _shot_candidate_artifact(candidate: ClipCandidate) -> ShotCandidateArtifact:
         selected=selected,
         rejected=not selected,
         rejection_reason=candidate.rejection_reason,
-        technical_score=candidate.technical_score or candidate.quality_score,
+        technical_score=(
+            candidate.technical_score
+            if candidate.technical_score is not None
+            else candidate.quality_score
+        ),
         stability_score=candidate.smoothness_score or 0.0,
         composition_score=candidate.composition_score or 0.0,
-        motion_intent_score=candidate.motion_intent_score or candidate.motion_score,
+        motion_intent_score=(
+            candidate.motion_intent_score
+            if candidate.motion_intent_score is not None
+            else candidate.motion_score
+        ),
         reveal_score=candidate.reveal_score or 0.0,
         novelty_score=candidate.novelty_score or 0.0,
         drone_director_score=candidate.director_score,

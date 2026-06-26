@@ -41,13 +41,13 @@ def build_story_plan(
         usable = sorted(candidates, key=lambda candidate: candidate.director_score, reverse=True)
 
     chosen: dict[str, ClipCandidate] = {}
-    used_paths: set[Path] = set()
+    used_windows: set[tuple[Path, float, float]] = set()
     for role in PICK_ORDER:
-        candidate = _pick_for_role(role, usable, used_paths)
+        candidate = _pick_for_role(role, usable, used_windows)
         if candidate is None:
             continue
         chosen[role] = candidate
-        used_paths.add(candidate.asset_path)
+        used_windows.add((candidate.asset_path, candidate.start_s, candidate.end_s))
 
     selected: list[StoryPlanClip] = []
     for role in EMIT_ORDER:
@@ -71,10 +71,16 @@ def build_story_plan(
 def _pick_for_role(
     role: str,
     candidates: list[ClipCandidate],
-    used_paths: set[Path],
+    used_windows: set[tuple[Path, float, float]],
 ) -> ClipCandidate | None:
     preferred = ROLE_PREFERENCES[role]
-    pool = [candidate for candidate in candidates if candidate.asset_path not in used_paths]
+    # Dedup at the window level, not the file level: drone footage is often one long clip,
+    # and distinct windows of the same file are still distinct shots for different roles.
+    pool = [
+        candidate
+        for candidate in candidates
+        if (candidate.asset_path, candidate.start_s, candidate.end_s) not in used_windows
+    ]
     if not pool:
         pool = candidates
     return max(
