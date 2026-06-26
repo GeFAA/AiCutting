@@ -9,7 +9,7 @@ description = "Professional local AI-assisted drone video cutting pipeline."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "AiCutting Contributors" }]
+authors = [{ name = "GeFAA" }]
 keywords = ["video-editing", "drone", "ffmpeg", "davinci-resolve", "ai"]
 classifiers = [
   "Development Status :: 3 - Alpha",

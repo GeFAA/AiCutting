@@ -21,10 +21,21 @@ by automated tests. The user experience is still being refined.
 
 ### AI Drone Director 2.0
 
-The 2.0 director path is drone-only. It adds richer drone shot classification,
-beat planning, story arc planning, motion-aware effect decisions, and review
-artifacts. It is designed to improve raw-moment selection before adding visual
-effects.
+AiCutting's current planning engine is the AI Drone Director 2.0 path, which
+turns on automatically for drone footage. It:
+
+- classifies every candidate into a drone shot type (reveal, approach, orbit,
+  fly-through, top-down, establishing, tracking) and rejects search-flight,
+  takeoff/landing, and unstable motion,
+- turns the music into a beat plan with energy sections and cut density,
+- arranges the strongest shots into a deliberate edit arc — establish, move,
+  peak, release — anchored to musical downbeats,
+- chooses motion-aware transitions (smooth zoom, whip blur, dissolve, flash
+  cut) from shot motion and beat energy,
+- writes auditable review artifacts so every decision can be inspected.
+
+It is a deterministic, local-first slice focused on picking the best raw
+moments before layering on heavier visual effects.
 
 ## Highlights
 
@@ -36,9 +47,12 @@ effects.
 - Native Windows desktop entry point with `Start AiCutting.cmd`.
 - CLI for repeatable runs and dry-run artifact checks.
 - FFmpeg renderer plus Resolve handoff exports under `resolve/`.
-- JSON artifacts for auditability: `analysis.json`, `cut-plan.json`,
-  `timeline.json`, `director-report.json`, `rejected-segments.json`, and
-  `location-suggestions.json`.
+- AI Drone Director 2.0 planning: drone shot classification, beat-aware story
+  arcs, and motion-aware effect decisions (details below).
+- JSON artifacts for auditability, including `analysis.json`, `cut-plan.json`,
+  `timeline.json`, `director-report.json`, `rejected-segments.json`,
+  `shot-candidates.json`, `beat-plan.json`, `story-plan.json`,
+  `effect-plan.json`, and `director-2-report.json`.
 
 ## Quick Start
 
@@ -131,6 +145,10 @@ See [SECURITY.md](SECURITY.md) for security and private-footage notes.
 - Add more robust packaging for non-developer installation.
 - Continue improving motion, beat, and location-title quality on real drone
   projects.
+
+## Author
+
+AiCutting is created and maintained by [GeFAA](https://github.com/GeFAA).
 
 ## License
 
