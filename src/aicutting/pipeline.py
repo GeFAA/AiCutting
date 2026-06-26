@@ -2,15 +2,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from aicutting.agents.backends import detect_agent_backends
 from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
+from aicutting.analysis.screenshots import extract_location_keyframes
 from aicutting.analysis.video import build_candidates_from_scenes, score_candidates_from_video
 from aicutting.core.artifacts import write_json_model, write_json_models
-from aicutting.core.models import AnalysisReport, Timeline
+from aicutting.core.models import AnalysisReport, ClipCandidate, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
 from aicutting.director.engine import build_director_outputs
-from aicutting.director.location import fallback_location_suggestion
+from aicutting.director.location import resolve_location_suggestions
 from aicutting.planning.engine import build_cut_plan
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.resolve.export import export_resolve_handoff
@@ -68,9 +70,15 @@ class CutPipeline:
         output_dir.mkdir(parents=True, exist_ok=True)
         emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE, step=1, total=4)
         report = self.dependencies.analyze(input_dir, music_path)
-        location_suggestions = [
-            fallback_location_suggestion("no metadata or agent backend available")
-        ]
+        location_screenshots = extract_location_keyframes(
+            _location_candidates(report),
+            output_dir / "location-screenshots",
+        )
+        location_suggestions = resolve_location_suggestions(
+            location_screenshots,
+            detect_agent_backends(),
+            workdir=output_dir,
+        )
         director_outputs = build_director_outputs(
             report, location_suggestions=location_suggestions
         )
@@ -110,3 +118,12 @@ class CutPipeline:
             final_video=final_video,
             output_dir=output_dir,
         )
+
+
+def _location_candidates(report: AnalysisReport, limit: int = 3) -> list[ClipCandidate]:
+    candidates = [
+        candidate for candidate in report.candidates if candidate.rejection_reason is None
+    ]
+    if not candidates:
+        candidates = report.candidates
+    return sorted(candidates, key=lambda candidate: candidate.director_score, reverse=True)[:limit]

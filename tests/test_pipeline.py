@@ -1,9 +1,12 @@
+import json
 from pathlib import Path
 
 import pytest
 
+from aicutting.agents.backends import AgentBackend
 from aicutting.core.models import AnalysisReport, AudioAnalysis, ClipCandidate, MediaAsset
 from aicutting.core.progress import PipelinePhase, ProgressEvent
+from aicutting.director.models import LocationSuggestion
 from aicutting.pipeline import CutPipeline, PipelineDependencies, default_analyze
 
 
@@ -197,3 +200,72 @@ def test_pipeline_writes_director_artifacts(tmp_path: Path) -> None:
     assert (output_dir / "director-report.json").exists()
     assert (output_dir / "rejected-segments.json").exists()
     assert (output_dir / "location-suggestions.json").exists()
+
+
+def test_pipeline_writes_high_confidence_agent_location_to_timeline(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    keyframe = tmp_path / "frame.jpg"
+    keyframe.write_bytes(b"fake jpg")
+
+    report = AnalysisReport(
+        media=[MediaAsset(path=video, duration_s=8, width=1920, height=1080, fps=25)],
+        candidates=[
+            ClipCandidate(
+                asset_path=video,
+                start_s=0,
+                end_s=5,
+                quality_score=0.9,
+                motion_score=0.2,
+                diversity_key="clip:0",
+            )
+        ],
+        audio=AudioAnalysis(path=None, duration_s=0, beats_s=[], energy=[]),
+    )
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: report,
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+    monkeypatch.setattr(
+        "aicutting.pipeline.extract_location_keyframes",
+        lambda candidates, output_dir: [keyframe],
+    )
+    monkeypatch.setattr(
+        "aicutting.pipeline.detect_agent_backends",
+        lambda: [AgentBackend(name="codex", executable="codex", available=True)],
+    )
+    monkeypatch.setattr(
+        "aicutting.pipeline.resolve_location_suggestions",
+        lambda images, backends, workdir: [
+            LocationSuggestion(
+                title="Madeira Coast",
+                place="Madeira, Portugal",
+                confidence=0.88,
+                evidence=["agent matched cliffs and terraced coastline"],
+                should_render=True,
+            )
+        ],
+    )
+
+    CutPipeline(dependencies=deps).cut(
+        input_dir=input_dir,
+        music_path=None,
+        output_dir=output_dir,
+        dry_run=True,
+    )
+
+    timeline = json.loads((output_dir / "timeline.json").read_text(encoding="utf-8"))
+    suggestions = json.loads(
+        (output_dir / "location-suggestions.json").read_text(encoding="utf-8")
+    )
+
+    assert timeline["title"]["title"] == "Madeira Coast"
+    assert timeline["title"]["subtitle"] == "Madeira, Portugal"
+    assert suggestions[0]["title"] == "Madeira Coast"
