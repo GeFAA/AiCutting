@@ -19,23 +19,25 @@ FFmpeg render path, Resolve handoff artifacts, motion rejection, beat-aware
 planning, and optional local agent location titles are implemented and covered
 by automated tests. The user experience is still being refined.
 
-### AI Drone Director 2.0
+### AI Drone Director 3.0
 
-AiCutting's current planning engine is the AI Drone Director 2.0 path, which
-turns on automatically for drone footage. It:
+AiCutting's current planning engine is the agent-driven AI Drone Director 3.0
+path, which turns on automatically for drone footage. It:
 
-- classifies every candidate into a drone shot type (reveal, approach, orbit,
-  fly-through, top-down, establishing, tracking) and rejects search-flight,
-  takeoff/landing, and unstable motion,
-- turns the music into a beat plan with energy sections and cut density,
-- arranges the strongest shots into a deliberate edit arc — establish, move,
-  peak, release — anchored to musical downbeats,
-- chooses motion-aware transitions (smooth zoom, whip blur, dissolve, flash
-  cut) from shot motion and beat energy,
-- writes auditable review artifacts so every decision can be inspected.
+- samples the footage into contact sheets and asks the local vision agent
+  (Codex, falling back to Claude Code) to rate each moment, classify the drone
+  shot, and reject takeoff, landing, search-flight, shaky, and boring frames,
+- turns the music into a beat grid that fills the whole song, with clip lengths
+  driven by energy (calm = longer clips, drops = fast cuts on the beat),
+- lets the agent design the edit — which moment fills each slot, the arc, and
+  where strong effects fit — then assembles it deterministically with variety
+  guards (no repeats, no identical shots back to back, spread across files),
+- renders real effects (zoom push-in, varied transitions) only where they fit,
+- writes auditable review artifacts for every stage.
 
-It is a deterministic, local-first slice focused on picking the best raw
-moments before layering on heavier visual effects.
+If no local agent is available (or the installed agent is outdated), a
+deterministic fallback editor still produces a full-length, beat-synced,
+effect-aware edit offline. The agent needs a current Codex or Claude Code CLI.
 
 ## Highlights
 
@@ -47,12 +49,12 @@ moments before layering on heavier visual effects.
 - Native Windows desktop entry point with `Start AiCutting.cmd`.
 - CLI for repeatable runs and dry-run artifact checks.
 - FFmpeg renderer plus Resolve handoff exports under `resolve/`.
-- AI Drone Director 2.0 planning: drone shot classification, beat-aware story
-  arcs, and motion-aware effect decisions (details below).
+- AI Drone Director 3.0 planning: agent-rated footage, beat-driven full-length
+  edits, and motion-aware effects (details below).
 - JSON artifacts for auditability, including `analysis.json`, `cut-plan.json`,
   `timeline.json`, `director-report.json`, `rejected-segments.json`,
-  `shot-candidates.json`, `beat-plan.json`, `story-plan.json`,
-  `effect-plan.json`, and `director-2-report.json`.
+  `footage-ratings.json`, `rhythm-grid.json`, `edit-decision.json`, and
+  `director-3-report.json`.
 
 ## Quick Start
 
