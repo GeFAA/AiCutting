@@ -4,7 +4,13 @@ from pathlib import Path
 import pytest
 
 from aicutting.agents.backends import AgentBackend
-from aicutting.core.models import AnalysisReport, AudioAnalysis, ClipCandidate, MediaAsset
+from aicutting.core.models import (
+    AnalysisReport,
+    AudioAnalysis,
+    ClipCandidate,
+    DroneShotType,
+    MediaAsset,
+)
 from aicutting.core.progress import PipelinePhase, ProgressEvent
 from aicutting.director.models import LocationSuggestion
 from aicutting.pipeline import CutPipeline, PipelineDependencies, default_analyze
@@ -269,3 +275,44 @@ def test_pipeline_writes_high_confidence_agent_location_to_timeline(
     assert timeline["title"]["title"] == "Madeira Coast"
     assert timeline["title"]["subtitle"] == "Madeira, Portugal"
     assert suggestions[0]["title"] == "Madeira Coast"
+
+
+def test_pipeline_writes_drone_director_20_artifacts(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    report = AnalysisReport(
+        media=[MediaAsset(path=video, duration_s=20, width=1920, height=1080, fps=25)],
+        candidates=[
+            ClipCandidate(
+                asset_path=video,
+                start_s=2,
+                end_s=7,
+                quality_score=0.9,
+                motion_score=0.7,
+                diversity_key="clip:0",
+                shot_type=DroneShotType.REVEAL,
+                drone_director_score=0.9,
+                reveal_score=0.85,
+                novelty_score=0.7,
+                technical_score=0.8,
+                motion_intent_score=0.9,
+            )
+        ],
+        audio=AudioAnalysis(path=None, duration_s=8.0, beats_s=[0, 2, 4, 6], energy=[0.2, 0.8]),
+    )
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: report,
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=True)
+
+    assert (output_dir / "shot-candidates.json").exists()
+    assert (output_dir / "beat-plan.json").exists()
+    assert (output_dir / "story-plan.json").exists()
+    assert (output_dir / "effect-plan.json").exists()
+    assert (output_dir / "director-2-report.json").exists()
