@@ -171,3 +171,39 @@ def test_build_ffmpeg_command_renders_smooth_zoom_as_filter() -> None:
     filter_complex = command[command.index("-filter_complex") + 1]
 
     assert "zoompan" in filter_complex or "xfade" in filter_complex
+
+
+def test_smooth_zoom_clip_gets_zoompan_animation() -> None:
+    base = _timeline()
+    second = base.clips[0].model_copy(
+        update={
+            "asset_path": Path("clip-b.mp4"),
+            "timeline_start_s": 4.0,
+            "transition_in": Transition(kind=TransitionType.SMOOTH_ZOOM, duration_s=0.25),
+        }
+    )
+    timeline = base.model_copy(update={"clips": [base.clips[0], second]})
+
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "zoompan" in filter_complex
+    assert "xfade=transition=smoothleft" in filter_complex
+
+
+def test_whip_blur_uses_distinct_transition_name() -> None:
+    base = _timeline()
+    second = base.clips[0].model_copy(
+        update={
+            "asset_path": Path("clip-b.mp4"),
+            "timeline_start_s": 4.0,
+            "transition_in": Transition(kind=TransitionType.WHIP_BLUR, duration_s=0.2),
+        }
+    )
+    timeline = base.model_copy(update={"clips": [base.clips[0], second]})
+
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "transition=fadeblack" in filter_complex
+    assert "transition=fade:" not in filter_complex

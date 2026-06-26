@@ -2,7 +2,7 @@ import subprocess
 from pathlib import Path
 
 from aicutting.core.errors import ExternalToolError
-from aicutting.core.models import Timeline, TransitionType
+from aicutting.core.models import Timeline, TimelineClip, TransitionType
 from aicutting.render.titles import build_drawtext_filter, discover_font
 
 # Transition kinds rendered as an FFmpeg xfade. 2.0 effect kinds fall back to a stable xfade
@@ -11,6 +11,7 @@ _XFADE_KINDS = {
     TransitionType.DISSOLVE,
     TransitionType.SMOOTH_ZOOM,
     TransitionType.WHIP_BLUR,
+    TransitionType.FLASH_CUT,
 }
 
 
@@ -36,11 +37,12 @@ def build_ffmpeg_command(
 
     video_filters: list[str] = []
     concat_inputs: list[str] = []
-    for index, _clip in enumerate(timeline.clips):
+    for index, clip in enumerate(timeline.clips):
         label = f"v{index}"
+        animation = _clip_animation(clip, timeline)
         video_filters.append(
             f"[{index}:v]setpts=PTS-STARTPTS,scale={timeline.width}:{timeline.height},"
-            f"fps={timeline.fps},format=yuv420p,settb=AVTB[{label}]"
+            f"fps={timeline.fps},format=yuv420p{animation},settb=AVTB[{label}]"
         )
         concat_inputs.append(f"[{label}]")
 
@@ -135,6 +137,20 @@ def _format_seconds(value: float) -> str:
 
 
 def _xfade_transition_name(kind: TransitionType) -> str:
-    if kind == TransitionType.WHIP_BLUR:
-        return "fadeblack"
-    return "fade"
+    return {
+        TransitionType.WHIP_BLUR: "fadeblack",
+        TransitionType.SMOOTH_ZOOM: "smoothleft",
+        TransitionType.FLASH_CUT: "fadewhite",
+    }.get(kind, "fade")
+
+
+def _clip_animation(clip: TimelineClip, timeline: Timeline) -> str:
+    # zoompan with d=1 emits one output frame per input frame, so the zoom accumulates over the
+    # clip without changing its frame count (d=duration would explode the frames on a video input).
+    if clip.transition_in.kind == TransitionType.SMOOTH_ZOOM:
+        return (
+            ",zoompan=z='min(zoom+0.0015,1.12)':d=1"
+            ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+            f":s={timeline.width}x{timeline.height}:fps={timeline.fps:g}"
+        )
+    return ""
