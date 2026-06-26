@@ -19,6 +19,21 @@ class AudioAnalysis(BaseModel):
     energy: list[float]
 
 
+class DroneShotType(StrEnum):
+    REVEAL = "reveal"
+    APPROACH = "approach"
+    PULL_BACK = "pull_back"
+    ORBIT = "orbit"
+    FLY_THROUGH = "fly_through"
+    TOP_DOWN = "top_down"
+    ESTABLISHING = "establishing"
+    TRACKING = "tracking"
+    SEARCH_MOTION = "search_motion"
+    TAKEOFF_OR_LANDING = "takeoff_or_landing"
+    UNSTABLE = "unstable"
+    UNKNOWN = "unknown"
+
+
 class LocationTitle(BaseModel):
     title: str
     subtitle: str | None = None
@@ -39,6 +54,12 @@ class ClipCandidate(BaseModel):
     usability_score: float | None = Field(default=None, ge=0, le=1)
     movement_type: str = "unknown"
     rejection_reason: str | None = None
+    shot_type: DroneShotType = DroneShotType.UNKNOWN
+    technical_score: float | None = Field(default=None, ge=0, le=1)
+    motion_intent_score: float | None = Field(default=None, ge=0, le=1)
+    reveal_score: float | None = Field(default=None, ge=0, le=1)
+    novelty_score: float | None = Field(default=None, ge=0, le=1)
+    drone_director_score: float | None = Field(default=None, ge=0, le=1)
 
     @field_validator("end_s")
     @classmethod
@@ -58,6 +79,8 @@ class ClipCandidate(BaseModel):
 
     @property
     def director_score(self) -> float:
+        if self.drone_director_score is not None:
+            return round(self.drone_director_score, 6)
         usability = (
             self.usability_score if self.usability_score is not None else self.composite_score
         )
@@ -79,6 +102,11 @@ class TransitionType(StrEnum):
     HARD_CUT = "hard_cut"
     DISSOLVE = "dissolve"
     MATCH_CUT = "match_cut"
+    SMOOTH_ZOOM = "smooth_zoom"
+    WHIP_BLUR = "whip_blur"
+    FLASH_CUT = "flash_cut"
+    SPEED_RAMP = "speed_ramp"
+    MATCH_MOTION = "match_motion"
 
 
 class Transition(BaseModel):

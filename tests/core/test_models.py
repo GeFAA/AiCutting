@@ -6,6 +6,7 @@ from aicutting.core.models import (
     AnalysisReport,
     AudioAnalysis,
     ClipCandidate,
+    DroneShotType,
     MediaAsset,
     Timeline,
     TimelineClip,
@@ -71,6 +72,26 @@ def test_clip_candidate_rejects_end_before_start() -> None:
             motion_score=0.4,
             diversity_key="lake",
         )
+
+
+def test_clip_candidate_exposes_drone_director_score() -> None:
+    candidate = ClipCandidate(
+        asset_path=Path("clip.mp4"),
+        start_s=2.0,
+        end_s=7.0,
+        quality_score=0.8,
+        motion_score=0.7,
+        diversity_key="clip:0",
+        shot_type=DroneShotType.REVEAL,
+        technical_score=0.75,
+        motion_intent_score=0.9,
+        reveal_score=0.85,
+        novelty_score=0.6,
+        drone_director_score=0.88,
+    )
+
+    assert candidate.shot_type == DroneShotType.REVEAL
+    assert candidate.director_score == 0.88
 
 
 def test_timeline_clip_rejects_source_end_before_source_start() -> None:
