@@ -65,6 +65,8 @@ def test_beat_story_and_effect_models_are_serializable() -> None:
                 duration_s=0.25,
                 confidence=0.86,
                 beat_anchor_s=4.0,
+                source_shot_type=DroneShotType.APPROACH,
+                target_shot_type=DroneShotType.REVEAL,
                 reason="approach motion at peak",
             )
         ]
@@ -73,3 +75,5 @@ def test_beat_story_and_effect_models_are_serializable() -> None:
     assert beat_plan.sections[0].label == "peak"
     assert story.clips[0].role == "peak"
     assert effects.decisions[0].transition == TransitionType.SMOOTH_ZOOM
+    assert effects.decisions[0].source_shot_type == DroneShotType.APPROACH
+    assert effects.decisions[0].target_shot_type == DroneShotType.REVEAL

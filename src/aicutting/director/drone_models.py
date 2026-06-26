@@ -72,6 +72,8 @@ class EffectDecision(BaseModel):
     duration_s: float = Field(ge=0)
     confidence: float = Field(ge=0, le=1)
     beat_anchor_s: float | None = Field(default=None, ge=0)
+    source_shot_type: DroneShotType | None = None
+    target_shot_type: DroneShotType | None = None
     reason: str
 
 
