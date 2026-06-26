@@ -5,6 +5,14 @@ from aicutting.core.errors import ExternalToolError
 from aicutting.core.models import Timeline, TransitionType
 from aicutting.render.titles import build_drawtext_filter, discover_font
 
+# Transition kinds rendered as an FFmpeg xfade. 2.0 effect kinds fall back to a stable xfade
+# variant until dedicated filters (zoompan, speed ramps) are wired in.
+_XFADE_KINDS = {
+    TransitionType.DISSOLVE,
+    TransitionType.SMOOTH_ZOOM,
+    TransitionType.WHIP_BLUR,
+}
+
 
 def build_ffmpeg_command(
     timeline: Timeline,
@@ -84,7 +92,7 @@ def _compose_video_filter(
         return ";".join(video_filters)
 
     has_rendered_transition = any(
-        clip.transition_in.kind == TransitionType.DISSOLVE and clip.transition_in.duration_s > 0
+        clip.transition_in.kind in _XFADE_KINDS and clip.transition_in.duration_s > 0
         for clip in timeline.clips[1:]
     )
     if not has_rendered_transition:
@@ -100,7 +108,8 @@ def _compose_video_filter(
     for index, clip in enumerate(timeline.clips[1:], start=1):
         clip_duration_s = clip.timeline_duration_s
         next_label = output_label if index == last_clip_index else f"x{index}"
-        if clip.transition_in.kind == TransitionType.DISSOLVE and clip.transition_in.duration_s > 0:
+        if clip.transition_in.kind in _XFADE_KINDS and clip.transition_in.duration_s > 0:
+            transition_name = _xfade_transition_name(clip.transition_in.kind)
             transition_duration_s = min(
                 clip.transition_in.duration_s,
                 max(0.001, output_duration_s - 0.001),
@@ -108,7 +117,7 @@ def _compose_video_filter(
             )
             offset_s = max(0.0, output_duration_s - transition_duration_s)
             chain_filters.append(
-                f"[{current_label}][v{index}]xfade=transition=fade:"
+                f"[{current_label}][v{index}]xfade=transition={transition_name}:"
                 f"duration={_format_seconds(transition_duration_s)}:"
                 f"offset={_format_seconds(offset_s)}[{next_label}]"
             )
@@ -123,3 +132,9 @@ def _compose_video_filter(
 
 def _format_seconds(value: float) -> str:
     return str(round(value, 3))
+
+
+def _xfade_transition_name(kind: TransitionType) -> str:
+    if kind == TransitionType.WHIP_BLUR:
+        return "fadeblack"
+    return "fade"
