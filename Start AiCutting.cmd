@@ -12,15 +12,15 @@ echo.
 
 where py >nul 2>nul
 if errorlevel 1 (
-    echo Python wurde nicht gefunden.
-    echo Bitte Python 3.11 oder neuer installieren und danach diese Datei erneut starten.
+    echo Python was not found.
+    echo Install Python 3.11 or newer, then start this file again.
     echo Download: https://www.python.org/downloads/
     echo.
     pause
     exit /b 1
 )
 
-echo Pruefe vorhandenes Python...
+echo Checking the existing Python environment...
 py -3 -c "import aicutting; import PySide6, cv2, numpy, pydantic, typer, rich, librosa, scenedetect, soundfile" >nul 2>nul
 if not errorlevel 1 (
     goto start_with_system_python
@@ -31,28 +31,28 @@ if exist ".venv\.aicutting-gui-ready" (
 )
 
 echo.
-echo Abhaengigkeiten fehlen. AiCutting richtet jetzt eine lokale Umgebung ein.
-echo Das passiert nur beim ersten Start und kann einige Minuten dauern.
+echo Dependencies are missing. AiCutting will create a local environment.
+echo This happens only on the first setup and can take a few minutes.
 echo.
 
 if not exist ".venv\Scripts\python.exe" (
-    echo Lokale Python-Umgebung wird erstellt...
+    echo Creating local Python environment...
     py -3 -m venv .venv
     if errorlevel 1 (
         echo.
-        echo Die lokale Python-Umgebung konnte nicht erstellt werden.
-        echo Pruefe bitte, ob auf Laufwerk C: genug Speicher frei ist.
+        echo The local Python environment could not be created.
+        echo Check whether the drive containing this repository has enough free space.
         echo.
         pause
         exit /b 1
     )
 )
 
-echo AiCutting Studio wird installiert...
+echo Installing AiCutting Studio...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
 if errorlevel 1 (
     echo.
-    echo Pip konnte nicht aktualisiert werden.
+    echo Pip could not be upgraded.
     echo.
     pause
     exit /b 1
@@ -61,8 +61,8 @@ if errorlevel 1 (
 ".venv\Scripts\python.exe" -m pip install -e ".[gui]"
 if errorlevel 1 (
     echo.
-    echo AiCutting Studio konnte nicht installiert werden.
-    echo Falls "No space left on device" erscheint, bitte Speicher auf Laufwerk C: freimachen.
+    echo AiCutting Studio could not be installed.
+    echo If you see "No space left on device", free disk space and try again.
     echo.
     pause
     exit /b 1
@@ -75,11 +75,11 @@ goto start_with_venv
 where ffmpeg >nul 2>nul
 if errorlevel 1 (
     echo.
-    echo Hinweis: FFmpeg wurde nicht auf PATH gefunden.
-    echo Rendern kann fehlschlagen, bis FFmpeg installiert ist.
+    echo Warning: FFmpeg was not found on PATH.
+    echo Rendering can fail until FFmpeg is installed.
     echo.
 )
-echo Starte AiCutting Studio...
+echo Starting AiCutting Studio...
 echo.
 py -3 -m aicutting.cli gui
 goto handle_exit
@@ -88,11 +88,11 @@ goto handle_exit
 where ffmpeg >nul 2>nul
 if errorlevel 1 (
     echo.
-    echo Hinweis: FFmpeg wurde nicht auf PATH gefunden.
-    echo Rendern kann fehlschlagen, bis FFmpeg installiert ist.
+    echo Warning: FFmpeg was not found on PATH.
+    echo Rendering can fail until FFmpeg is installed.
     echo.
 )
-echo Starte AiCutting Studio...
+echo Starting AiCutting Studio...
 echo.
 ".venv\Scripts\python.exe" -m aicutting.cli gui
 
@@ -100,7 +100,7 @@ echo.
 set "EXITCODE=%ERRORLEVEL%"
 if not "%EXITCODE%"=="0" (
     echo.
-    echo AiCutting Studio wurde mit Fehlercode %EXITCODE% beendet.
+    echo AiCutting Studio exited with error code %EXITCODE%.
     echo.
     pause
     exit /b %EXITCODE%

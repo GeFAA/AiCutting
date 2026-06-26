@@ -10,6 +10,16 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "AiCutting Contributors" }]
+keywords = ["video-editing", "drone", "ffmpeg", "davinci-resolve", "ai"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Win32 (MS Windows)",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Multimedia :: Video",
+]
 dependencies = [
   "typer>=0.12.5",
   "rich>=13.9",
@@ -36,6 +46,11 @@ gui = [
 [project.scripts]
 aicutting = "aicutting.cli:app"
 aicutting-studio = "aicutting.gui.app:main_cli"
+
+[project.urls]
+Homepage = "https://github.com/GeFAA/AiCutting"
+Issues = "https://github.com/GeFAA/AiCutting/issues"
+Source = "https://github.com/GeFAA/AiCutting"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aicutting"]
