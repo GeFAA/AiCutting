@@ -23,6 +23,8 @@ def test_probe_video_maps_ffprobe_json(monkeypatch: pytest.MonkeyPatch, tmp_path
         assert kwargs["check"] is False
         assert kwargs["capture_output"] is True
         assert kwargs["text"] is True
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
 
         payload = {
             "format": {"duration": "12.5"},

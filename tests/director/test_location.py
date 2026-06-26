@@ -145,6 +145,8 @@ def test_resolve_location_suggestions_uses_codex_cmd_for_ps1_backend(
     assert calls[0][0].count("--image") == 1
     assert calls[0][0][-1] == "-"
     assert "input" in calls[0][1]
+    assert calls[0][1]["encoding"] == "utf-8"
+    assert calls[0][1]["errors"] == "replace"
 
 
 def test_resolve_location_suggestions_falls_back_after_agent_failure(

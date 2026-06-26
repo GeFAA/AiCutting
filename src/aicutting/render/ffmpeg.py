@@ -56,7 +56,14 @@ def render_timeline(timeline: Timeline, output_path: Path, music_path: Path | No
     output_path.parent.mkdir(parents=True, exist_ok=True)
     command = build_ffmpeg_command(timeline, output_path=output_path, music_path=music_path)
     try:
-        result = subprocess.run(command, check=False, capture_output=True, text=True)
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
     except OSError as exc:
         raise ExternalToolError("FFmpeg is not available on PATH.") from exc
     if result.returncode != 0:

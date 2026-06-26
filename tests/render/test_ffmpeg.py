@@ -139,3 +139,18 @@ def test_render_timeline_wraps_missing_ffmpeg(
 
     with pytest.raises(ExternalToolError, match="FFmpeg is not available"):
         render_timeline(_timeline(), tmp_path / "final.mp4", music_path=None)
+
+
+def test_render_timeline_decodes_ffmpeg_output_losslessly_enough(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        assert kwargs["encoding"] == "utf-8"
+        assert kwargs["errors"] == "replace"
+        return subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="bad \ufffd")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(ExternalToolError, match="bad"):
+        render_timeline(_timeline(), tmp_path / "final.mp4", music_path=None)

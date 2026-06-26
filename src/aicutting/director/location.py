@@ -153,6 +153,8 @@ def _resolve_with_codex(
         input=build_location_prompt(image_paths),
         text=True,
         capture_output=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
         timeout=180,
     )
@@ -182,6 +184,8 @@ def _resolve_with_claude(
         cwd=str(workdir),
         text=True,
         capture_output=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
         timeout=180,
     )
