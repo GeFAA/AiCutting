@@ -1,0 +1,15 @@
+[cut]
+style = "adaptive_clean_cinematic"
+min_clip_seconds = 1.0
+max_clip_seconds = 6.0
+default_without_music = true
+
+[color]
+intent = "subtle_cinematic"
+allow_aggressive_grades = false
+
+[resolve]
+write_fcpxml = true
+write_edl = true
+write_media_manifest = true
+
