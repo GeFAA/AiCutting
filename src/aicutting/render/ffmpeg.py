@@ -14,6 +14,13 @@ _XFADE_KINDS = {
     TransitionType.FLASH_CUT,
 }
 
+# A restrained cinematic grade applied to every clip: gentle contrast + saturation and a subtle
+# teal-orange split-tone (cool shadows, warm highlights) so the whole film shares one graded look.
+_COLOR_GRADE = (
+    ",eq=contrast=1.06:saturation=1.1"
+    ",colorbalance=rs=-0.02:bs=0.03:rh=0.03:bh=-0.02"
+)
+
 
 def build_ffmpeg_command(
     timeline: Timeline,
@@ -42,7 +49,7 @@ def build_ffmpeg_command(
         animation = _clip_animation(clip, timeline, index)
         video_filters.append(
             f"[{index}:v]setpts=PTS-STARTPTS,scale={timeline.width}:{timeline.height},"
-            f"fps={timeline.fps},format=yuv420p{animation},settb=AVTB[{label}]"
+            f"fps={timeline.fps},format=yuv420p{_COLOR_GRADE}{animation},settb=AVTB[{label}]"
         )
         concat_inputs.append(f"[{label}]")
 

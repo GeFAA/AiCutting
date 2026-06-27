@@ -39,6 +39,14 @@ def test_build_ffmpeg_command_seeks_each_clip_input_and_outputs_video() -> None:
     assert not any("trim=start=1.0:end=5.0" in part for part in command)
 
 
+def test_clips_get_a_cinematic_colour_grade() -> None:
+    command = build_ffmpeg_command(_timeline(), output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "eq=contrast=" in filter_complex
+    assert "colorbalance=" in filter_complex
+
+
 def test_build_ffmpeg_command_renders_dissolve_transitions() -> None:
     timeline = Timeline(
         target_duration_s=8.0,
