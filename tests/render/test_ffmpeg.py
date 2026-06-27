@@ -188,7 +188,7 @@ def test_smooth_zoom_clip_gets_zoompan_animation() -> None:
     filter_complex = command[command.index("-filter_complex") + 1]
 
     assert "zoompan" in filter_complex
-    assert "xfade=transition=smoothleft" in filter_complex
+    assert "xfade=transition=fade" in filter_complex  # gentle crossfade + push-in
 
 
 def test_smooth_zoom_fps_matches_clip_fps_for_fractional_rate() -> None:

@@ -50,13 +50,15 @@ def rating_schema() -> dict[str, Any]:
 def build_rating_prompt(moment_ids: list[str]) -> str:
     ids = ", ".join(moment_ids)
     return (
-        "You are a professional drone-video editor. The attached contact sheet shows numbered "
-        "frames, each labelled with its moment id (top-left).\n"
+        "You are a demanding professional drone-video editor. The attached contact sheet shows "
+        "numbered frames, each labelled with its moment id (top-left).\n"
         f"Rate ONLY these moments: {ids}.\n"
-        "For each: cinematic_score 0-1 (composition, light, interest), the drone shot_type, and "
-        "keep=false for takeoff, landing, search/hunting motion, shaky, blurry, or boring "
-        "sky/ground with no subject. Be strict: a clean professional edit needs only the "
-        "best moments.\n"
+        "For each give cinematic_score 0-1 (composition, light, depth, interest) and the drone "
+        "shot_type. Set keep=false for: takeoff or landing, ANY low-altitude or near-ground shot, "
+        "the drone descending or hovering low over the ground, search/hunting motion, tilted "
+        "horizon, shaky or blurry frames, sun glare, and empty sky or featureless ground with no "
+        "subject. Keep ONLY clearly airborne, sharp, well-composed cinematic shots. Be very "
+        "strict -- when in doubt, keep=false.\n"
         "Return JSON only matching the schema."
     )
 

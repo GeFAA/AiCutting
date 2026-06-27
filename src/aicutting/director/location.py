@@ -82,12 +82,14 @@ def build_location_prompt(image_paths: list[Path]) -> str:
     image_list = "\n".join(f"- {path}" for path in image_paths)
     schema = json.dumps(location_response_schema(), ensure_ascii=True)
     return (
-        "You are a conservative location title assistant for professional drone edits.\n"
-        "Inspect the attached screenshots from the same source footage and identify the "
-        "most likely location only when visual evidence is strong.\n"
-        "Do not guess from generic scenery. If the place is not specific, return "
-        "place='unknown', confidence below 0.75, and should_render=false.\n"
-        "Prefer clean title text suitable for a short cinematic overlay.\n\n"
+        "You are a location identifier for a cinematic drone edit.\n"
+        "Inspect the attached screenshots from the same footage and name the most likely place. "
+        "Identify the country or region from terrain, vegetation, geology, and coastline even "
+        "without a unique landmark (e.g. 'Iceland', 'Norwegian Fjords', 'Tuscany'). When the "
+        "scenery clearly points to a region, set a clean short title (the region or country), "
+        "should_render=true, and an honest confidence. Only return place='unknown', "
+        "should_render=false if the scenery is truly generic.\n"
+        "Keep the title short and display-ready -- a place name, not a sentence.\n\n"
         f"Screenshots:\n{image_list}\n\n"
         f"Return JSON only matching this schema:\n{schema}"
     )

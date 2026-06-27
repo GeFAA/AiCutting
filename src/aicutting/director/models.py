@@ -31,7 +31,7 @@ class LocationSuggestion(BaseModel):
 
     @property
     def renderable(self) -> bool:
-        return self.should_render and self.confidence >= 0.75
+        return self.should_render and self.confidence >= 0.55
 
 
 class DirectorReport(BaseModel):

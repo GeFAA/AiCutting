@@ -9,11 +9,17 @@ from aicutting.core.models import (
     AudioAnalysis,
     ClipCandidate,
     DroneShotType,
+    LocationTitle,
     MediaAsset,
 )
 from aicutting.core.progress import PipelinePhase, ProgressEvent
 from aicutting.director.models import LocationSuggestion
-from aicutting.pipeline import CutPipeline, PipelineDependencies, default_analyze
+from aicutting.pipeline import (
+    CutPipeline,
+    PipelineDependencies,
+    _compose_title,
+    default_analyze,
+)
 
 
 def test_pipeline_writes_artifacts_without_rendering(tmp_path: Path) -> None:
@@ -322,3 +328,20 @@ def test_pipeline_writes_drone_director_3_artifacts_with_fallback(
     plan = json.loads((output_dir / "cut-plan.json").read_text(encoding="utf-8"))
     assert plan["style"] == "ai_drone_director_30"
     assert len(plan["timeline"]["clips"]) >= 1
+
+
+def test_compose_title_combines_place_and_date() -> None:
+    location = LocationTitle(title="Iceland", subtitle="Iceland", confidence=0.7)
+    title = _compose_title(location, "June 2025")
+    assert title is not None
+    assert title.title == "Iceland"  # where
+    assert title.subtitle == "June 2025"  # when
+
+
+def test_compose_title_falls_back_to_date_only() -> None:
+    title = _compose_title(None, "June 2025")
+    assert title is not None and title.title == "June 2025"
+
+
+def test_compose_title_none_without_place_or_date() -> None:
+    assert _compose_title(None, None) is None

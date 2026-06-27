@@ -58,7 +58,7 @@ def _extract_midpoint_frame(
 
 def sample_footage_moments(
     media: list[MediaAsset],
-    trim_s: float = 12.0,
+    trim_s: float = 18.0,
     stride_s: float = 4.0,
     max_moments: int = 96,
 ) -> list[FootageMoment]:

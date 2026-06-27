@@ -56,9 +56,9 @@ def _fallback_effect(slot: RhythmSlot, shot_type: DroneShotType) -> TransitionTy
 
 
 def _accent_transition(count: int) -> TransitionType:
-    # A visible but tasteful transition for an energetic cut the agent left plain; alternate so two
-    # transitions never use the same effect.
-    return TransitionType.WHIP_BLUR if count % 2 else TransitionType.SMOOTH_ZOOM
+    # Cohesive gentle crossfades that fit aerial footage (no jarring whips/slides); the SMOOTH_ZOOM
+    # variant also pushes in slightly. Both render as a soft crossfade.
+    return TransitionType.SMOOTH_ZOOM if count % 2 else TransitionType.DISSOLVE
 
 
 def _pick(

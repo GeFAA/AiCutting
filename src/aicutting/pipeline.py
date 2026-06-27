@@ -7,6 +7,7 @@ from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.beat_plan import build_beat_plan
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
+from aicutting.analysis.footage_meta import recording_date_label
 from aicutting.analysis.screenshots import (
     build_contact_sheets,
     extract_location_keyframes,
@@ -14,7 +15,7 @@ from aicutting.analysis.screenshots import (
 )
 from aicutting.analysis.video import build_candidates_from_scenes, score_candidates_from_video
 from aicutting.core.artifacts import write_json_model, write_json_models
-from aicutting.core.models import AnalysisReport, ClipCandidate, CutPlan, Timeline
+from aicutting.core.models import AnalysisReport, ClipCandidate, CutPlan, LocationTitle, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
 from aicutting.director.edit_agent import decide_edit, rate_moments
 from aicutting.director.edit_models import Director3Report, FootageMoment, MomentRating
@@ -94,13 +95,12 @@ class CutPipeline:
 
         emit_progress(progress, PipelinePhase.PLANNING_CUT, step=2, total=4)
         plan = _build_director_3_plan(director_outputs.analysis, output_dir)
-        if director_outputs.director_report.title is not None:
+        title = _compose_title(
+            director_outputs.director_report.title, recording_date_label(report.media)
+        )
+        if title is not None:
             plan = plan.model_copy(
-                update={
-                    "timeline": plan.timeline.model_copy(
-                        update={"title": director_outputs.director_report.title}
-                    )
-                }
+                update={"timeline": plan.timeline.model_copy(update={"title": title})}
             )
         final_video = output_dir / "final.mp4"
 
@@ -129,6 +129,20 @@ class CutPipeline:
         )
 
 
+def _compose_title(location: LocationTitle | None, date_label: str | None) -> LocationTitle | None:
+    # The when/where overlay: place (where, from the vision agent) over the date (when, from the
+    # footage metadata). Show whatever is available rather than nothing.
+    place = (location.title or location.subtitle or "").strip() if location is not None else ""
+    if place and date_label:
+        confidence = location.confidence if location is not None else 1.0
+        return LocationTitle(title=place, subtitle=date_label, confidence=confidence)
+    if place:
+        return location
+    if date_label:
+        return LocationTitle(title=date_label, subtitle=None, confidence=1.0)
+    return None
+
+
 def _location_candidates(report: AnalysisReport, limit: int = 3) -> list[ClipCandidate]:
     candidates = [
         candidate for candidate in report.candidates if candidate.rejection_reason is None
@@ -152,7 +166,7 @@ def _build_director_3_plan(analysis: AnalysisReport, output_dir: Path) -> CutPla
         else []
     )
     ratings = rate_moments(sheets, backends, output_dir) if sheets else []
-    kept = [rating for rating in ratings if rating.keep]
+    kept = [rating for rating in ratings if rating.keep and rating.cinematic_score >= 0.55]
     edit = decide_edit(kept, slots, backends, output_dir) if kept else None
     used_agent = edit is not None
     plan = assemble_cut_plan(edit, slots, moment_index, media) if edit is not None else None

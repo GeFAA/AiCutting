@@ -139,7 +139,7 @@ def _format_seconds(value: float) -> str:
 def _xfade_transition_name(kind: TransitionType) -> str:
     return {
         TransitionType.WHIP_BLUR: "fadeblack",
-        TransitionType.SMOOTH_ZOOM: "smoothleft",
+        TransitionType.SMOOTH_ZOOM: "fade",  # gentle crossfade (the push-in carries the motion)
         TransitionType.FLASH_CUT: "fadewhite",
     }.get(kind, "fade")
 
