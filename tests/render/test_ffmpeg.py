@@ -214,6 +214,21 @@ def test_smooth_zoom_fps_matches_clip_fps_for_fractional_rate() -> None:
     assert ":fps=59.9401:" not in filter_complex  # not the rounded, mismatching rational
 
 
+def test_long_held_clip_gets_subtle_pushin() -> None:
+    # A long held shot (>= 4 s) gets a gentle push-in so it reads as motion, not a frozen frame.
+    command = build_ffmpeg_command(_timeline(), output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+    assert "zoompan" in filter_complex
+
+
+def test_short_clip_has_no_pushin() -> None:
+    short = _timeline().clips[0].model_copy(update={"source_end_s": 2.5})  # 1.5 s clip
+    timeline = _timeline().model_copy(update={"clips": [short]})
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+    assert "zoompan" not in filter_complex
+
+
 def test_whip_blur_uses_distinct_transition_name() -> None:
     base = _timeline()
     second = base.clips[0].model_copy(

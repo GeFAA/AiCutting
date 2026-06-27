@@ -55,6 +55,12 @@ def _fallback_effect(slot: RhythmSlot, shot_type: DroneShotType) -> TransitionTy
     return TransitionType.HARD_CUT
 
 
+def _accent_transition(count: int) -> TransitionType:
+    # A visible but tasteful transition for an energetic cut the agent left plain; alternate so two
+    # transitions never use the same effect.
+    return TransitionType.WHIP_BLUR if count % 2 else TransitionType.SMOOTH_ZOOM
+
+
 def _pick(
     pool: list[MomentRating],
     recent: list[str],
@@ -85,13 +91,21 @@ def assemble_cut_plan(
     use_count: dict[str, int] = {}
     recent: list[str] = []
     prev_effect: TransitionType | None = None
+    since_transition = 2  # clips since the last transition (start ready so the first one can fire)
+    transition_count = 0
     for position, slot in enumerate(slots):
         clip = by_slot.get(slot.index)
         effect = clip.effect if clip is not None else TransitionType.HARD_CUT
         if position == 0:
             effect = TransitionType.HARD_CUT  # first clip is the chain base, no rendered transition
-        elif effect == prev_effect and effect != TransitionType.HARD_CUT:
-            effect = TransitionType.HARD_CUT  # never the same transition twice in a row
+        else:
+            # Punch the more energetic cuts the agent left plain, but keep at least two hard cuts
+            # between transitions so they stay tasteful instead of constant.
+            if effect == TransitionType.HARD_CUT and slot.energy >= 0.45 and since_transition >= 2:
+                effect = _accent_transition(transition_count)
+                transition_count += 1
+            if effect == prev_effect and effect != TransitionType.HARD_CUT:
+                effect = TransitionType.HARD_CUT  # never the same transition twice in a row
         # An xfade overlaps its two clips, so the clip must be longer than the slot by the overlap
         # for the post-fade timeline to keep landing exactly on the beat.
         overlap = _effect_duration(effect) if position > 0 else 0.0
@@ -116,6 +130,7 @@ def assemble_cut_plan(
         recent.append(moment_id)
         if len(recent) > _REUSE_SPACING:
             recent.pop(0)
+        since_transition = 0 if effect != TransitionType.HARD_CUT else since_transition + 1
         prev_effect = effect
         cursor = round(cursor + slot.duration_s, 3)  # net render contribution -> cuts stay on beat
 

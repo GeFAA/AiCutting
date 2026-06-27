@@ -109,6 +109,28 @@ def test_assemble_pins_cuts_to_beat_positions() -> None:
         assert round(clip.timeline_start_s, 3) == round(slot.start_s, 3)
 
 
+def test_assemble_punches_accent_drops_left_as_hard_cut() -> None:
+    # An accent (drop) the agent left as a plain hard cut becomes a visible transition so it hits.
+    slots = _slots(3)  # slot 1 is the accent (is_accent True)
+    moments = _moments(["m1", "m2", "m3"])
+    media = [
+        MediaAsset(path=Path("flight.mp4"), duration_s=120.0, width=1920, height=1080, fps=25.0)
+    ]
+    edit = EditDecision(
+        arc="x",
+        clips=[
+            EditClip(
+                slot_index=i, moment_id=f"m{i + 1}", effect=TransitionType.HARD_CUT, reason=""
+            )
+            for i in range(3)
+        ],
+    )
+
+    plan = assemble_cut_plan(edit, slots, moments, media)
+
+    assert plan.timeline.clips[1].transition_in.kind != TransitionType.HARD_CUT
+
+
 def test_fallback_edit_assigns_without_repeats() -> None:
     slots = _slots(3)
     kept = [

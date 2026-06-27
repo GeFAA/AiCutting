@@ -145,14 +145,22 @@ def _xfade_transition_name(kind: TransitionType) -> str:
 
 
 def _clip_animation(clip: TimelineClip, timeline: Timeline) -> str:
+    # A SMOOTH_ZOOM clip gets a pronounced push-in (placed on accents); any long held shot gets a
+    # gentle push-in so it reads as cinematic motion instead of a frozen frame.
+    if clip.transition_in.kind == TransitionType.SMOOTH_ZOOM:
+        return _zoompan(timeline, increment=0.0015, cap=1.12)
+    if clip.timeline_duration_s >= 4.0:
+        return _zoompan(timeline, increment=0.0004, cap=1.10)
+    return ""
+
+
+def _zoompan(timeline: Timeline, increment: float, cap: float) -> str:
     # zoompan with d=1 emits one output frame per input frame, so the zoom accumulates over the
     # clip without changing its frame count (d=duration would explode the frames on a video input).
-    if clip.transition_in.kind == TransitionType.SMOOTH_ZOOM:
-        return (
-            ",zoompan=z='min(zoom+0.0015,1.12)':d=1"
-            ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-            # fps must match the per-clip `fps=` filter exactly: a rounded value resolves to a
-            # different rational (e.g. 599401/10000 vs 60000/1001) and xfade rejects the mismatch.
-            f":s={timeline.width}x{timeline.height}:fps={timeline.fps}"
-        )
-    return ""
+    # fps must match the per-clip `fps=` filter exactly: a rounded value resolves to a different
+    # rational (e.g. 599401/10000 vs 60000/1001) and xfade rejects the mismatch.
+    return (
+        f",zoompan=z='min(zoom+{increment:g},{cap:g})':d=1"
+        ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+        f":s={timeline.width}x{timeline.height}:fps={timeline.fps}"
+    )
