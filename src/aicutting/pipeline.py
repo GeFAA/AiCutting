@@ -5,6 +5,7 @@ from pathlib import Path
 from aicutting.agents.backends import detect_agent_backends
 from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.beat_plan import build_beat_plan
+from aicutting.analysis.color import moment_color_signatures
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.footage_meta import recording_date_label
@@ -17,7 +18,7 @@ from aicutting.analysis.video import build_candidates_from_scenes, score_candida
 from aicutting.core.artifacts import write_json_model, write_json_models
 from aicutting.core.models import AnalysisReport, ClipCandidate, CutPlan, LocationTitle, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
-from aicutting.director.edit_agent import decide_edit, rate_moments
+from aicutting.director.edit_agent import rate_moments
 from aicutting.director.edit_models import Director3Report, FootageMoment, MomentRating
 from aicutting.director.engine import build_director_outputs
 from aicutting.director.location import resolve_location_suggestions
@@ -25,6 +26,7 @@ from aicutting.director.models import LocationSuggestion
 from aicutting.planning.assemble import assemble_cut_plan, fallback_edit
 from aicutting.planning.duration import choose_target_duration
 from aicutting.planning.rhythm import build_rhythm_grid
+from aicutting.planning.sequence import color_ordered_edit
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.resolve.export import export_resolve_handoff
 
@@ -231,10 +233,19 @@ def _build_director_3_plan(
             message=f"kept {len(kept)} · rejected {len(ratings) - len(kept)}",
         )
     emit_progress(progress, PipelinePhase.DESIGNING_EDIT)
-    edit = decide_edit(kept, slots, backends, output_dir) if kept else None
-    used_agent = edit is not None
+    signatures = moment_color_signatures(
+        {
+            rating.moment_id: moment_index[rating.moment_id]
+            for rating in kept
+            if rating.moment_id in moment_index
+        }
+    )
+    edit = color_ordered_edit(kept, signatures, slots) if kept else None
+    used_agent = bool(kept)
     if edit is not None:
-        emit_progress(progress, PipelinePhase.DESIGNING_EDIT, message=edit.arc[:70])
+        emit_progress(
+            progress, PipelinePhase.DESIGNING_EDIT, message="colour journey: lava → green"
+        )
     emit_progress(progress, PipelinePhase.ASSEMBLING_CUT)
     plan = assemble_cut_plan(edit, slots, moment_index, media) if edit is not None else None
     if plan is None or len(plan.timeline.clips) < max(1, len(slots) // 2):
