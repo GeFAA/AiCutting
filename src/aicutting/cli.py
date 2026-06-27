@@ -1,3 +1,5 @@
+import contextlib
+import sys
 from pathlib import Path
 from typing import Annotated
 
@@ -10,9 +12,18 @@ from aicutting.core.paths import resolve_cut_inputs
 app = typer.Typer(help="AiCutting: local cinematic drone video cutting.")
 
 
+def _ensure_utf8_streams() -> None:
+    # The live view and progress messages use ✓/·/spinner glyphs; a legacy Windows code page
+    # (cp1252) cannot encode them and rich would crash mid-run. Force UTF-8 where supported.
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError, OSError):
+            stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
+
 @app.callback()
 def main() -> None:
     """AiCutting command line interface."""
+    _ensure_utf8_streams()
 
 
 @app.command()
