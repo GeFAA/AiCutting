@@ -155,18 +155,23 @@ def _build_director_3_plan(analysis: AnalysisReport, output_dir: Path) -> CutPla
     kept = [rating for rating in ratings if rating.keep]
     edit = decide_edit(kept, slots, backends, output_dir) if kept else None
     used_agent = edit is not None
-    if edit is None:
-        durations = {asset.path: asset.duration_s for asset in media}
-        safe = [
-            candidate
-            for candidate in analysis.candidates
-            if _within_safe_zone(candidate, durations.get(candidate.asset_path, 0.0))
-        ]
-        fallback_ratings, fallback_moments = _ratings_from_candidates(safe or analysis.candidates)
-        moment_index = fallback_moments
-        ratings = ratings or fallback_ratings
-        edit = fallback_edit(fallback_ratings, slots)
-    plan = assemble_cut_plan(edit, slots, moment_index, media)
+    plan = assemble_cut_plan(edit, slots, moment_index, media) if edit is not None else None
+    if plan is None or len(plan.timeline.clips) < max(1, len(slots) // 2):
+        # No agent, or the agent's edit was too sparse/infeasible -> deterministic grid fill,
+        # still seeded by the agent's own kept ratings when codex rated the footage.
+        if kept:
+            edit = fallback_edit(kept, slots)
+        else:
+            durations = {asset.path: asset.duration_s for asset in media}
+            safe = [
+                candidate
+                for candidate in analysis.candidates
+                if _within_safe_zone(candidate, durations.get(candidate.asset_path, 0.0))
+            ]
+            ratings, moment_index = _ratings_from_candidates(safe or analysis.candidates)
+            edit = fallback_edit(ratings, slots)
+        plan = assemble_cut_plan(edit, slots, moment_index, media)
+    assert edit is not None  # always set: the agent edit or the deterministic fill
     write_json_models(output_dir / "footage-ratings.json", ratings)
     write_json_models(output_dir / "rhythm-grid.json", slots)
     write_json_model(output_dir / "edit-decision.json", edit)

@@ -17,29 +17,32 @@ from aicutting.director.edit_models import (
 
 _CALM = {DroneShotType.ESTABLISHING, DroneShotType.TOP_DOWN, DroneShotType.ORBIT}
 _ENERGETIC = {DroneShotType.REVEAL, DroneShotType.APPROACH, DroneShotType.FLY_THROUGH}
+_REUSE_SPACING = 5  # avoid reusing a moment within this many slots while fresh ones remain
 
 
 def fallback_edit(kept: list[MomentRating], slots: list[RhythmSlot]) -> EditDecision:
     pool = sorted(kept, key=lambda rating: rating.cinematic_score, reverse=True)
-    used: set[str] = set()
+    if not pool:
+        return EditDecision(arc="deterministic fill", clips=[])
+    recent: list[str] = []
     prev: DroneShotType | None = None
     clips: list[EditClip] = []
     for slot in slots:
         prefer = _ENERGETIC if slot.is_accent else _CALM
-        choice = _best(pool, used, prev, prefer)
-        if choice is None:
-            break
-        used.add(choice.moment_id)
+        choice = _pick(pool, recent, prev, prefer)
+        recent.append(choice.moment_id)
+        if len(recent) > _REUSE_SPACING:
+            recent.pop(0)
         prev = choice.shot_type
         clips.append(
             EditClip(
                 slot_index=slot.index,
                 moment_id=choice.moment_id,
                 effect=_fallback_effect(slot, choice.shot_type),
-                reason=f"{choice.shot_type.value} fallback",
+                reason=f"{choice.shot_type.value} fill",
             )
         )
-    return EditDecision(arc="deterministic fallback", clips=clips)
+    return EditDecision(arc="deterministic fill", clips=clips)
 
 
 def _fallback_effect(slot: RhythmSlot, shot_type: DroneShotType) -> TransitionType:
@@ -50,18 +53,18 @@ def _fallback_effect(slot: RhythmSlot, shot_type: DroneShotType) -> TransitionTy
     return TransitionType.HARD_CUT
 
 
-def _best(
+def _pick(
     pool: list[MomentRating],
-    used: set[str],
+    recent: list[str],
     prev: DroneShotType | None,
     prefer: set[DroneShotType],
-) -> MomentRating | None:
-    candidates = [r for r in pool if r.moment_id not in used and r.shot_type != prev]
-    if not candidates:
-        candidates = [r for r in pool if r.moment_id not in used]
-    if not candidates:
-        return None
-    return max(candidates, key=lambda r: (r.shot_type in prefer, r.cinematic_score))
+) -> MomentRating:
+    fresh = [r for r in pool if r.moment_id not in recent and r.shot_type != prev]
+    if not fresh:
+        fresh = [r for r in pool if r.moment_id not in recent]
+    if not fresh:
+        fresh = pool  # the whole pool is recently used -> reuse the strongest
+    return max(fresh, key=lambda r: (r.shot_type in prefer, r.cinematic_score))
 
 
 def assemble_cut_plan(
@@ -76,15 +79,20 @@ def assemble_cut_plan(
     base = media[0]
     clips: list[TimelineClip] = []
     cursor = 0.0
-    used: set[str] = set()
+    use_count: dict[str, int] = {}
+    prev_moment: str | None = None
     prev_effect: TransitionType | None = None
     for slot in slots:
         clip = by_slot.get(slot.index)
-        if clip is None or clip.moment_id in used or clip.moment_id not in moments:
+        if clip is None or clip.moment_id not in moments or clip.moment_id == prev_moment:
             continue
         moment = moments[clip.moment_id]
+        reuse = use_count.get(clip.moment_id, 0)
         window = _clamp_window(
-            moment.timestamp_s, slot.duration_s, durations.get(moment.asset_path, 0.0), trim_s
+            moment.timestamp_s + reuse * 0.4,
+            slot.duration_s,
+            durations.get(moment.asset_path, 0.0),
+            trim_s,
         )
         if window is None:
             continue
@@ -103,7 +111,8 @@ def assemble_cut_plan(
                 color_intent="subtle_cinematic",
             )
         )
-        used.add(clip.moment_id)
+        use_count[clip.moment_id] = reuse + 1
+        prev_moment = clip.moment_id
         prev_effect = effect
         cursor = round(cursor + (end_s - start_s), 3)
 

@@ -18,7 +18,7 @@ def build_rhythm_grid(beat_plan: BeatPlan, target_duration_s: float) -> list[Rhy
     while index < len(beats) - 1:
         start = beats[index]
         energy = _energy_at(beat_plan, start, target_duration_s)
-        span = 1 if energy >= 0.72 else 2 if energy >= 0.45 else 3
+        span = 2 if energy >= 0.72 else 3 if energy >= 0.45 else 4
         next_index = min(index + span, len(beats) - 1)
         end = beats[next_index]
         if end <= start:

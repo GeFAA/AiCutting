@@ -213,15 +213,17 @@ def build_edit_prompt(kept: list[MomentRating], slots: list[RhythmSlot]) -> str:
         for s in slots
     )
     return (
-        "You are a professional drone-video editor cutting to music. Build the edit by "
-        "assigning ONE moment to each slot, in slot order, to fill the whole song.\n"
-        "Rules: never repeat a moment; never put the same shot_type in two adjacent slots; "
-        "match calm slots to establishing/top_down/orbit and high-energy/accent slots to "
-        "reveal/approach/fly_through; build toward the accents.\n"
+        "You are a professional drone-video editor cutting to music. Fill EVERY slot, in slot "
+        "order, so the cut runs the whole song. There are usually fewer good moments than slots, "
+        "so REUSE your strongest moments across the song -- this is expected, not a problem.\n"
+        "Rules: you may reuse a moment, but never in two adjacent slots and avoid reusing one "
+        "within ~5 slots while other moments are still unused; never put the same shot_type in "
+        "two adjacent slots; match calm slots to establishing/top_down/orbit and "
+        "high-energy/accent slots to reveal/approach/fly_through; build toward the accents.\n"
         "Choose an effect per slot: usually hard_cut; on ACCENT slots, if the motion fits, "
         "use smooth_zoom (forward/reveal), whip_blur (fast lateral), or match_motion; dissolve "
         "only for calm intros/outros. Keep effects rare and tasteful.\n\n"
-        f"Available moments:\n{moments}\n\nSlots:\n{grid}\n\n"
+        f"Available moments ({len(kept)}):\n{moments}\n\nSlots ({len(slots)}):\n{grid}\n\n"
         "Return JSON only matching the schema."
     )
 
