@@ -60,9 +60,12 @@ def sample_footage_moments(
     media: list[MediaAsset],
     trim_s: float = 12.0,
     stride_s: float = 4.0,
-    max_moments: int = 48,
+    max_moments: int = 96,
 ) -> list[FootageMoment]:
-    moments: list[FootageMoment] = []
+    # Collect candidates from EVERY file first; subsample evenly only if there are too many. (A
+    # per-file cap would exhaust the budget on the first file and never sample the others, which
+    # is what made the whole edit repeat a single source clip.)
+    raw: list[tuple[Path, float]] = []
     for asset in media:
         if asset.duration_s - 2 * trim_s <= stride_s:  # short clip: proportional 10% trim
             edge = max(0.0, asset.duration_s * 0.1)
@@ -70,16 +73,16 @@ def sample_footage_moments(
         else:
             start, end = trim_s, asset.duration_s - trim_s
         cursor = start
-        while cursor <= end and len(moments) < max_moments:
-            moments.append(
-                FootageMoment(
-                    moment_id=f"m{len(moments) + 1:03d}",
-                    asset_path=asset.path,
-                    timestamp_s=round(cursor, 3),
-                )
-            )
+        while cursor <= end:
+            raw.append((asset.path, round(cursor, 3)))
             cursor += stride_s
-    return moments
+    if max_moments > 0 and len(raw) > max_moments:
+        step = len(raw) / max_moments
+        raw = [raw[int(i * step)] for i in range(max_moments)]
+    return [
+        FootageMoment(moment_id=f"m{index + 1:03d}", asset_path=path, timestamp_s=timestamp)
+        for index, (path, timestamp) in enumerate(raw)
+    ]
 
 
 def build_contact_sheets(

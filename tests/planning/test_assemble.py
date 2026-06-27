@@ -58,7 +58,10 @@ def test_assemble_fills_slots_and_clamps_windows() -> None:
     assert plan.timeline.clips[1].transition_in.kind == TransitionType.SMOOTH_ZOOM
 
 
-def test_assemble_skips_duplicate_moment() -> None:
+def test_assemble_fills_every_slot_to_stay_on_beat() -> None:
+    # Beat alignment requires every slot to produce a clip. With only one moment available the
+    # assembler reuses it on a different sub-window rather than dropping the slot (which would
+    # shift every later cut off its beat).
     slots = _slots(2)
     moments = _moments(["m1"])
     media = [
@@ -74,7 +77,36 @@ def test_assemble_skips_duplicate_moment() -> None:
 
     plan = assemble_cut_plan(edit, slots, moments, media)
 
-    assert len(plan.timeline.clips) == 1  # duplicate dropped
+    assert len(plan.timeline.clips) == 2  # both slots filled
+    assert plan.timeline.clips[0].timeline_start_s == 0.0
+    assert round(plan.timeline.clips[1].timeline_start_s, 3) == 3.0  # second cut on the beat
+    # the reused clip is offset so it is not byte-identical footage
+    assert plan.timeline.clips[0].source_start_s != plan.timeline.clips[1].source_start_s
+
+
+def test_assemble_pins_cuts_to_beat_positions() -> None:
+    # Each clip's timeline start must equal its slot's beat-aligned start, so the rendered hard
+    # cuts (which concatenate by duration) land exactly on the music's beats.
+    slots = _slots(4)
+    moments = _moments(["m1", "m2", "m3", "m4"])
+    media = [
+        MediaAsset(path=Path("flight.mp4"), duration_s=120.0, width=1920, height=1080, fps=25.0)
+    ]
+    edit = EditDecision(
+        arc="x",
+        clips=[
+            EditClip(
+                slot_index=i, moment_id=f"m{i + 1}", effect=TransitionType.HARD_CUT, reason=""
+            )
+            for i in range(4)
+        ],
+    )
+
+    plan = assemble_cut_plan(edit, slots, moments, media)
+
+    assert len(plan.timeline.clips) == 4
+    for clip, slot in zip(plan.timeline.clips, slots, strict=True):
+        assert round(clip.timeline_start_s, 3) == round(slot.start_s, 3)
 
 
 def test_fallback_edit_assigns_without_repeats() -> None:

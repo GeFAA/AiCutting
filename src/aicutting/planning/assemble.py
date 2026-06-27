@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from aicutting.core.models import (
     CutPlan,
     DroneShotType,
@@ -77,44 +79,45 @@ def assemble_cut_plan(
     durations = {asset.path: asset.duration_s for asset in media}
     by_slot = {clip.slot_index: clip for clip in edit.clips}
     base = media[0]
+    pool = _moment_pool(edit, moments)
     clips: list[TimelineClip] = []
     cursor = 0.0
     use_count: dict[str, int] = {}
-    prev_moment: str | None = None
+    recent: list[str] = []
     prev_effect: TransitionType | None = None
-    for slot in slots:
+    for position, slot in enumerate(slots):
         clip = by_slot.get(slot.index)
-        if clip is None or clip.moment_id not in moments or clip.moment_id == prev_moment:
-            continue
-        moment = moments[clip.moment_id]
-        reuse = use_count.get(clip.moment_id, 0)
-        window = _clamp_window(
-            moment.timestamp_s + reuse * 0.4,
-            slot.duration_s,
-            durations.get(moment.asset_path, 0.0),
-            trim_s,
+        effect = clip.effect if clip is not None else TransitionType.HARD_CUT
+        if position == 0:
+            effect = TransitionType.HARD_CUT  # first clip is the chain base, no rendered transition
+        elif effect == prev_effect and effect != TransitionType.HARD_CUT:
+            effect = TransitionType.HARD_CUT  # never the same transition twice in a row
+        # An xfade overlaps its two clips, so the clip must be longer than the slot by the overlap
+        # for the post-fade timeline to keep landing exactly on the beat.
+        overlap = _effect_duration(effect) if position > 0 else 0.0
+        choice = _choose_moment(
+            clip, moments, pool, recent, use_count, slot.duration_s + overlap, durations, trim_s
         )
-        if window is None:
+        if choice is None:
             continue
-        start_s, end_s = window
-        effect = clip.effect
-        if effect == prev_effect and effect != TransitionType.HARD_CUT:
-            effect = TransitionType.HARD_CUT
+        moment_id, (start_s, end_s) = choice
         clips.append(
             TimelineClip(
-                asset_path=moment.asset_path,
+                asset_path=moments[moment_id].asset_path,
                 source_start_s=start_s,
                 source_end_s=end_s,
                 timeline_start_s=round(cursor, 3),
-                transition_in=Transition(kind=effect, duration_s=_effect_duration(effect)),
+                transition_in=Transition(kind=effect, duration_s=overlap),
                 speed=1.0,
                 color_intent="subtle_cinematic",
             )
         )
-        use_count[clip.moment_id] = reuse + 1
-        prev_moment = clip.moment_id
+        use_count[moment_id] = use_count.get(moment_id, 0) + 1
+        recent.append(moment_id)
+        if len(recent) > _REUSE_SPACING:
+            recent.pop(0)
         prev_effect = effect
-        cursor = round(cursor + (end_s - start_s), 3)
+        cursor = round(cursor + slot.duration_s, 3)  # net render contribution -> cuts stay on beat
 
     target = round(cursor, 3)
     if target <= 0:
@@ -130,19 +133,69 @@ def assemble_cut_plan(
     )
 
 
-def _clamp_window(
-    timestamp_s: float, duration_s: float, file_duration_s: float, trim_s: float
+def _moment_pool(edit: EditDecision, moments: dict[str, FootageMoment]) -> list[str]:
+    ordered: list[str] = []
+    for clip in edit.clips:
+        if clip.moment_id in moments and clip.moment_id not in ordered:
+            ordered.append(clip.moment_id)
+    return ordered or list(moments.keys())
+
+
+def _choose_moment(
+    clip: EditClip | None,
+    moments: dict[str, FootageMoment],
+    pool: list[str],
+    recent: list[str],
+    use_count: dict[str, int],
+    need_s: float,
+    durations: dict[Path, float],
+    trim_s: float,
+) -> tuple[str, tuple[float, float]] | None:
+    # Honour the agent's pick when it is fresh; otherwise substitute the least-used unseen moment;
+    # only as a last resort reuse a recent one. Every branch must yield a full-length window so the
+    # slot is filled and the beat grid stays intact.
+    by_use = sorted(pool, key=lambda mid: (use_count.get(mid, 0), mid))
+    preferred = [clip.moment_id] if clip is not None and clip.moment_id in moments else []
+    candidates = [
+        *(m for m in preferred if m not in recent),
+        *(m for m in by_use if m not in recent),
+        *preferred,
+        *by_use,
+    ]
+    seen: set[str] = set()
+    for moment_id in candidates:
+        if moment_id in seen:
+            continue
+        seen.add(moment_id)
+        moment = moments[moment_id]
+        window = _exact_window(
+            moment.timestamp_s,
+            need_s,
+            durations.get(moment.asset_path, 0.0),
+            trim_s,
+            use_count.get(moment_id, 0),
+        )
+        if window is not None:
+            return moment_id, window
+    return None
+
+
+def _exact_window(
+    timestamp_s: float, need_s: float, file_duration_s: float, trim_s: float, reuse: int
 ) -> tuple[float, float] | None:
-    if file_duration_s <= 0 or duration_s <= 0:
+    # Return a window of EXACTLY need_s seconds (offset on reuse so a repeated moment shows
+    # different footage), or None if even the raw file is too short for this slot.
+    if file_duration_s <= 0 or need_s <= 0:
         return None
     low = min(trim_s, file_duration_s * 0.1)
     high = max(low + 0.1, file_duration_s - low)
-    start = max(low, timestamp_s - duration_s / 2)
-    end = min(high, start + duration_s)
-    start = max(low, end - duration_s)
-    if end - start < 0.4:
-        return None
-    return round(start, 3), round(end, 3)
+    if high - low < need_s:  # safe zone too small; relax toward the raw file if it is long enough
+        if file_duration_s < need_s + 0.2:
+            return None
+        low, high = 0.0, file_duration_s
+    start = timestamp_s + reuse * 0.6 - need_s / 2
+    start = min(max(low, start), high - need_s)
+    return round(start, 3), round(start + need_s, 3)
 
 
 def _effect_duration(effect: TransitionType) -> float:
