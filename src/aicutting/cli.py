@@ -1,13 +1,14 @@
 import contextlib
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
 from aicutting import __version__
 from aicutting.core.errors import AiCuttingError
 from aicutting.core.paths import resolve_cut_inputs
+from aicutting.core.style import STYLE_PRESETS, resolve_style
 
 app = typer.Typer(help="AiCutting: local cinematic drone video cutting.")
 
@@ -60,6 +61,14 @@ def cut(
         bool,
         typer.Option("--dry-run", help="Create artifacts without rendering video."),
     ] = False,
+    style: Annotated[
+        str,
+        typer.Option(
+            "--style",
+            "-s",
+            help="Edit style preset: cinematic (default), epic, chill, or vlog.",
+        ),
+    ] = "cinematic",
 ) -> None:
     """Run the automatic cinematic cut pipeline."""
     try:
@@ -68,18 +77,25 @@ def cut(
         typer.echo(str(exc))
         raise typer.Exit(code=2) from exc
 
+    style_preset = resolve_style(style)
+
     from aicutting.pipeline import CutPipeline
     from aicutting.tui import RunReporter
 
     try:
         with RunReporter() as reporter:
-            result = CutPipeline().cut(
-                input_dir=inputs.input_dir,
-                music_path=inputs.music_path,
-                output_dir=inputs.output_dir,
-                dry_run=dry_run,
-                progress=reporter,
-            )
+            # The pipeline already defaults to cinematic, so only forward the preset when the user
+            # picked another one -- keeping the call shape backward compatible.
+            cut_kwargs: dict[str, Any] = {
+                "input_dir": inputs.input_dir,
+                "music_path": inputs.music_path,
+                "output_dir": inputs.output_dir,
+                "dry_run": dry_run,
+                "progress": reporter,
+            }
+            if style_preset is not STYLE_PRESETS["cinematic"]:
+                cut_kwargs["style"] = style_preset
+            result = CutPipeline().cut(**cut_kwargs)
     except AiCuttingError as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=2) from exc

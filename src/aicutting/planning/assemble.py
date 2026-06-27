@@ -22,6 +22,7 @@ _ENERGETIC = {DroneShotType.REVEAL, DroneShotType.APPROACH, DroneShotType.FLY_TH
 _REUSE_SPACING = 5  # avoid reusing a moment within this many slots while fresh ones remain
 _SLOW_MO = 0.75  # playback speed for calm establishing shots (a dreamy slow drift)
 _SLOW_MO_ENERGY = 0.3  # slow-mo only the genuinely calm slots; drops stay full speed
+_TRANSITION_ENERGY = 0.4  # crossfade calm cuts quieter than this; energetic drops stay hard cuts
 
 
 def fallback_edit(kept: list[MomentRating], slots: list[RhythmSlot]) -> EditDecision:
@@ -83,6 +84,9 @@ def assemble_cut_plan(
     moments: dict[str, FootageMoment],
     media: list[MediaAsset],
     trim_s: float = 12.0,
+    slow_mo_speed: float = _SLOW_MO,
+    slow_mo_energy: float = _SLOW_MO_ENERGY,
+    transition_energy: float = _TRANSITION_ENERGY,
 ) -> CutPlan:
     durations = {asset.path: asset.duration_s for asset in media}
     by_slot = {clip.slot_index: clip for clip in edit.clips}
@@ -104,7 +108,11 @@ def assemble_cut_plan(
             # Let gentle crossfades flow through the calm sections; leave the energetic drops as
             # punchy hard cuts on the beat (a dissolve on a drop feels wrong). Space them out so
             # transitions stay tasteful instead of constant.
-            if effect == TransitionType.HARD_CUT and slot.energy < 0.4 and since_transition >= 2:
+            if (
+                effect == TransitionType.HARD_CUT
+                and slot.energy < transition_energy
+                and since_transition >= 2
+            ):
                 effect = _accent_transition(transition_count)
                 transition_count += 1
             if effect == prev_effect and effect != TransitionType.HARD_CUT:
@@ -115,7 +123,7 @@ def assemble_cut_plan(
         # Slow-mo the calm establishing shots: take a shorter source window and slow it to fill the
         # slot, so the cut still lands exactly on the beat (timeline_duration = source / speed).
         # Energetic drops stay full speed and punchy.
-        speed = _SLOW_MO if slot.energy <= _SLOW_MO_ENERGY else 1.0
+        speed = slow_mo_speed if slot.energy <= slow_mo_energy else 1.0
         choice = _choose_moment(
             clip, moments, pool, recent, use_count,
             (slot.duration_s + overlap) * speed, durations, trim_s,

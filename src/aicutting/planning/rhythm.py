@@ -7,7 +7,9 @@ _BAR = 4  # beats per bar / downbeat cadence (build_beat_plan marks every 4th be
 _PHRASE = 16  # beats per phrase (build_beat_plan marks every 16th beat a phrase boundary)
 
 
-def build_rhythm_grid(beat_plan: BeatPlan, target_duration_s: float) -> list[RhythmSlot]:
+def build_rhythm_grid(
+    beat_plan: BeatPlan, target_duration_s: float, pace: float = 1.0
+) -> list[RhythmSlot]:
     if not beat_plan.beats_s:
         return _visual_grid(target_duration_s)
 
@@ -20,14 +22,18 @@ def build_rhythm_grid(beat_plan: BeatPlan, target_duration_s: float) -> list[Rhy
     # Cover the beatless intro (0 -> first beat) so the cumulative slot time stays the absolute
     # song time; otherwise every later cut is offset from its beat by the length of the intro.
     _add_intro_slots(slots, beats[0], beat_plan)
+    # The style's `pace` retunes how long the mid/calm sections hold. Round to whole bars so the
+    # downbeat snapping and phrase clamp below keep working; the drop span always stays one bar.
+    mid_span = max(1, round(2 * pace)) * _BAR
+    calm_span = max(1, round(3 * pace)) * _BAR
     index = 0
     while index < len(beats) - 1:
         start = beats[index]
         energy = _energy_at(beat_plan, start, target_duration_s)
-        # Span whole bars (drops cut on the bar, calm sections breathe ~3 bars) and snap the cut to
-        # a downbeat so it always lands on a strong beat; never run a slot across a phrase boundary
-        # so the cut aligns with the song's structural change.
-        span = _BAR if energy >= 0.72 else 2 * _BAR if energy >= 0.45 else 3 * _BAR
+        # Span whole bars (drop = 1 bar, calm ~3 bars at pace 1.0) and snap the cut to a downbeat so
+        # it lands on a strong beat; never run a slot across a phrase boundary so the cut aligns
+        # with the song's structural change.
+        span = _BAR if energy >= 0.72 else mid_span if energy >= 0.45 else calm_span
         next_index = round((index + span) / _BAR) * _BAR
         next_index = min(next_index, ((index // _PHRASE) + 1) * _PHRASE)
         next_index = min(max(next_index, index + _BAR), len(beats) - 1)

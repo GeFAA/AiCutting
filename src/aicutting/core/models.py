@@ -147,6 +147,7 @@ class Timeline(BaseModel):
     width: int = Field(gt=0)
     height: int = Field(gt=0)
     title: LocationTitle | None = None
+    grade_strength: float = Field(default=1.0, ge=0)  # colour-grade intensity (1.0 = cinematic)
 
 
 class CutPlan(BaseModel):

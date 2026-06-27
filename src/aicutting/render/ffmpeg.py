@@ -16,10 +16,19 @@ _XFADE_KINDS = {
 
 # A restrained cinematic grade applied to every clip: gentle contrast + saturation and a subtle
 # teal-orange split-tone (cool shadows, warm highlights) so the whole film shares one graded look.
-_COLOR_GRADE = (
-    ",eq=contrast=1.06:saturation=1.1"
-    ",colorbalance=rs=-0.02:bs=0.03:rh=0.03:bh=-0.02"
-)
+# `strength` scales it: the eq gains pivot around 1.0 and the colour-balance offsets around 0.0, so
+# strength=1.0 reproduces the shipped grade byte-for-byte and 0.0 is neutral. A style preset can
+# soften (chill/vlog) or strengthen (epic) the look via Timeline.grade_strength.
+def _color_grade(strength: float) -> str:
+    def fmt(value: float) -> str:
+        # `+ 0.0` normalises any -0.0 so a neutral grade reads `0`, not `-0`.
+        return f"{round(value, 4) + 0.0:g}"
+
+    return (
+        f",eq=contrast={fmt(1.0 + 0.06 * strength)}:saturation={fmt(1.0 + 0.1 * strength)}"
+        f",colorbalance=rs={fmt(-0.02 * strength)}:bs={fmt(0.03 * strength)}"
+        f":rh={fmt(0.03 * strength)}:bh={fmt(-0.02 * strength)}"
+    )
 
 
 def build_ffmpeg_command(
@@ -44,6 +53,7 @@ def build_ffmpeg_command(
 
     video_filters: list[str] = []
     concat_inputs: list[str] = []
+    grade = _color_grade(timeline.grade_strength)
     for index, clip in enumerate(timeline.clips):
         label = f"v{index}"
         animation = _clip_animation(clip, timeline, index)
@@ -52,7 +62,7 @@ def build_ffmpeg_command(
         pts = "PTS-STARTPTS" if clip.speed == 1.0 else f"(PTS-STARTPTS)/{clip.speed:g}"
         video_filters.append(
             f"[{index}:v]setpts={pts},scale={timeline.width}:{timeline.height},"
-            f"fps={timeline.fps},format=yuv420p{_COLOR_GRADE}{animation},settb=AVTB[{label}]"
+            f"fps={timeline.fps},format=yuv420p{grade}{animation},settb=AVTB[{label}]"
         )
         concat_inputs.append(f"[{label}]")
 

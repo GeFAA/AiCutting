@@ -19,6 +19,7 @@ from aicutting.analysis.video import build_candidates_from_scenes, score_candida
 from aicutting.core.artifacts import write_json_model, write_json_models
 from aicutting.core.models import AnalysisReport, ClipCandidate, CutPlan, LocationTitle, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
+from aicutting.core.style import STYLE_PRESETS, StylePreset
 from aicutting.director.edit_agent import rate_moments
 from aicutting.director.edit_models import Director3Report, FootageMoment, MomentRating
 from aicutting.director.engine import build_director_outputs
@@ -80,6 +81,7 @@ class CutPipeline:
         output_dir: Path,
         dry_run: bool,
         progress: ProgressCallback | None = None,
+        style: StylePreset = STYLE_PRESETS["cinematic"],
     ) -> PipelineResult:
         output_dir.mkdir(parents=True, exist_ok=True)
         emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE)
@@ -108,7 +110,7 @@ class CutPipeline:
             report, location_suggestions=location_suggestions
         )
 
-        plan = _build_director_3_plan(director_outputs.analysis, output_dir, progress)
+        plan = _build_director_3_plan(director_outputs.analysis, output_dir, progress, style)
         title = _compose_title(
             director_outputs.director_report.title, recording_date_label(report.media)
         )
@@ -209,12 +211,15 @@ def _gate_moments_by_motion(moments: list[FootageMoment]) -> list[FootageMoment]
 
 
 def _build_director_3_plan(
-    analysis: AnalysisReport, output_dir: Path, progress: ProgressCallback | None = None
+    analysis: AnalysisReport,
+    output_dir: Path,
+    progress: ProgressCallback | None = None,
+    style: StylePreset = STYLE_PRESETS["cinematic"],
 ) -> CutPlan:
     media = analysis.media
     beat_plan = build_beat_plan(analysis.audio)
     total = analysis.audio.duration_s or sum(c.duration_s for c in analysis.candidates) or 1.0
-    slots = build_rhythm_grid(beat_plan, choose_target_duration(total))
+    slots = build_rhythm_grid(beat_plan, choose_target_duration(total), pace=style.pace)
     backends = detect_agent_backends()
     moments = sample_footage_moments(media)
     moments = _gate_moments_by_motion(moments)
@@ -263,7 +268,19 @@ def _build_director_3_plan(
             progress, PipelinePhase.DESIGNING_EDIT, message="colour journey: lava → green"
         )
     emit_progress(progress, PipelinePhase.ASSEMBLING_CUT)
-    plan = assemble_cut_plan(edit, slots, moment_index, media) if edit is not None else None
+    plan = (
+        assemble_cut_plan(
+            edit,
+            slots,
+            moment_index,
+            media,
+            slow_mo_speed=style.slow_mo_speed,
+            slow_mo_energy=style.slow_mo_energy,
+            transition_energy=style.transition_energy,
+        )
+        if edit is not None
+        else None
+    )
     if plan is None or len(plan.timeline.clips) < max(1, len(slots) // 2):
         # No agent, or the agent's edit was too sparse/infeasible -> deterministic grid fill,
         # still seeded by the agent's own kept ratings when codex rated the footage.
@@ -278,7 +295,15 @@ def _build_director_3_plan(
             ]
             ratings, moment_index = _ratings_from_candidates(safe or analysis.candidates)
             edit = fallback_edit(ratings, slots)
-        plan = assemble_cut_plan(edit, slots, moment_index, media)
+        plan = assemble_cut_plan(
+            edit,
+            slots,
+            moment_index,
+            media,
+            slow_mo_speed=style.slow_mo_speed,
+            slow_mo_energy=style.slow_mo_energy,
+            transition_energy=style.transition_energy,
+        )
     assert edit is not None  # always set: the agent edit or the deterministic fill
     transitions = sum(
         1 for clip in plan.timeline.clips if clip.transition_in.kind.value != "hard_cut"
@@ -302,7 +327,9 @@ def _build_director_3_plan(
             warnings=[] if plan.timeline.clips else ["No clips could be assembled."],
         ),
     )
-    return plan
+    # Thread the style's grade into the render: the renderer reads Timeline.grade_strength.
+    graded = plan.timeline.model_copy(update={"grade_strength": style.grade_strength})
+    return plan.model_copy(update={"timeline": graded})
 
 
 def _diversify(
