@@ -11,7 +11,12 @@ class PipelinePhase(StrEnum):
     FINDING_VIDEOS = "finding_videos"
     ANALYZING_FOOTAGE = "analyzing_footage"
     ANALYZING_MUSIC = "analyzing_music"
+    IDENTIFYING_LOCATION = "identifying_location"
+    RATING_FOOTAGE = "rating_footage"
+    DESIGNING_EDIT = "designing_edit"
+    ASSEMBLING_CUT = "assembling_cut"
     PLANNING_CUT = "planning_cut"
+    BUILDING_REPORT = "building_report"
     EXPORTING_RESOLVE_HANDOFF = "exporting_resolve_handoff"
     RENDERING_FINAL_VIDEO = "rendering_final_video"
     DONE = "done"
@@ -22,7 +27,12 @@ PHASE_LABELS: dict[PipelinePhase, str] = {
     PipelinePhase.FINDING_VIDEOS: "Finding videos",
     PipelinePhase.ANALYZING_FOOTAGE: "Analyzing footage",
     PipelinePhase.ANALYZING_MUSIC: "Analyzing music",
+    PipelinePhase.IDENTIFYING_LOCATION: "Identifying location",
+    PipelinePhase.RATING_FOOTAGE: "Rating footage with the vision agent",
+    PipelinePhase.DESIGNING_EDIT: "Designing the edit",
+    PipelinePhase.ASSEMBLING_CUT: "Assembling the cut on the beat grid",
     PipelinePhase.PLANNING_CUT: "Planning cut",
+    PipelinePhase.BUILDING_REPORT: "Building the report",
     PipelinePhase.EXPORTING_RESOLVE_HANDOFF: "Exporting Resolve handoff",
     PipelinePhase.RENDERING_FINAL_VIDEO: "Rendering final video",
     PipelinePhase.DONE: "Done",

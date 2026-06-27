@@ -21,6 +21,7 @@ from aicutting.director.edit_agent import decide_edit, rate_moments
 from aicutting.director.edit_models import Director3Report, FootageMoment, MomentRating
 from aicutting.director.engine import build_director_outputs
 from aicutting.director.location import resolve_location_suggestions
+from aicutting.director.models import LocationSuggestion
 from aicutting.planning.assemble import assemble_cut_plan, fallback_edit
 from aicutting.planning.duration import choose_target_duration
 from aicutting.planning.rhythm import build_rhythm_grid
@@ -78,8 +79,14 @@ class CutPipeline:
         progress: ProgressCallback | None = None,
     ) -> PipelineResult:
         output_dir.mkdir(parents=True, exist_ok=True)
-        emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE, step=1, total=4)
+        emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE)
         report = self.dependencies.analyze(input_dir, music_path)
+        footage_s = sum(asset.duration_s for asset in report.media)
+        beats = len(report.audio.beats_s)
+        summary = f"{len(report.media)} videos · {footage_s:.0f}s · {beats} beats"
+        emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE, message=summary)
+
+        emit_progress(progress, PipelinePhase.IDENTIFYING_LOCATION)
         location_screenshots = extract_location_keyframes(
             _location_candidates(report),
             output_dir / "location-screenshots",
@@ -89,12 +96,16 @@ class CutPipeline:
             detect_agent_backends(),
             workdir=output_dir,
         )
+        emit_progress(
+            progress,
+            PipelinePhase.IDENTIFYING_LOCATION,
+            message=_location_label(location_suggestions),
+        )
         director_outputs = build_director_outputs(
             report, location_suggestions=location_suggestions
         )
 
-        emit_progress(progress, PipelinePhase.PLANNING_CUT, step=2, total=4)
-        plan = _build_director_3_plan(director_outputs.analysis, output_dir)
+        plan = _build_director_3_plan(director_outputs.analysis, output_dir, progress)
         title = _compose_title(
             director_outputs.director_report.title, recording_date_label(report.media)
         )
@@ -113,13 +124,22 @@ class CutPipeline:
         )
         write_json_models(output_dir / "location-suggestions.json", location_suggestions)
 
-        emit_progress(progress, PipelinePhase.EXPORTING_RESOLVE_HANDOFF, step=3, total=4)
+        emit_progress(progress, PipelinePhase.BUILDING_REPORT)
+        report_path = _safe_build_report(output_dir)
+        if report_path is not None:
+            emit_progress(progress, PipelinePhase.BUILDING_REPORT, message=report_path.name)
+
+        emit_progress(progress, PipelinePhase.EXPORTING_RESOLVE_HANDOFF)
         self.dependencies.export_resolve(plan.timeline, output_dir)
         if not dry_run:
-            emit_progress(progress, PipelinePhase.RENDERING_FINAL_VIDEO, step=4, total=4)
+            emit_progress(progress, PipelinePhase.RENDERING_FINAL_VIDEO)
             self.dependencies.render(plan.timeline, final_video, report.audio.path)
 
-        emit_progress(progress, PipelinePhase.DONE)
+        emit_progress(
+            progress,
+            PipelinePhase.DONE,
+            message=f"{len(plan.timeline.clips)} clips · {plan.timeline.target_duration_s:.0f}s",
+        )
         return PipelineResult(
             analysis=output_dir / "analysis.json",
             cut_plan=output_dir / "cut-plan.json",
@@ -143,6 +163,25 @@ def _compose_title(location: LocationTitle | None, date_label: str | None) -> Lo
     return None
 
 
+def _location_label(suggestions: list[LocationSuggestion]) -> str:
+    best = max(suggestions, key=lambda suggestion: suggestion.confidence, default=None)
+    if best is None or best.place == "unknown" or not best.should_render:
+        return "no confident location"
+    return f"{best.title or best.place} ({best.confidence:.2f})"
+
+
+def _safe_build_report(output_dir: Path) -> Path | None:
+    # The HTML report is best-effort visibility; never let it break a cut.
+    try:
+        from importlib import import_module
+
+        module = import_module("aicutting.report")
+        result = module.build_report(output_dir)
+        return result if isinstance(result, Path) else None
+    except Exception:
+        return None
+
+
 def _location_candidates(report: AnalysisReport, limit: int = 3) -> list[ClipCandidate]:
     candidates = [
         candidate for candidate in report.candidates if candidate.rejection_reason is None
@@ -152,7 +191,9 @@ def _location_candidates(report: AnalysisReport, limit: int = 3) -> list[ClipCan
     return sorted(candidates, key=lambda candidate: candidate.director_score, reverse=True)[:limit]
 
 
-def _build_director_3_plan(analysis: AnalysisReport, output_dir: Path) -> CutPlan:
+def _build_director_3_plan(
+    analysis: AnalysisReport, output_dir: Path, progress: ProgressCallback | None = None
+) -> CutPlan:
     media = analysis.media
     beat_plan = build_beat_plan(analysis.audio)
     total = analysis.audio.duration_s or sum(c.duration_s for c in analysis.candidates) or 1.0
@@ -165,10 +206,35 @@ def _build_director_3_plan(analysis: AnalysisReport, output_dir: Path) -> CutPla
         if moments and any(backend.available for backend in backends)
         else []
     )
-    ratings = rate_moments(sheets, backends, output_dir) if sheets else []
+    if sheets:
+        moment_count = len(moments)
+
+        def _on_sheet(done: int, total_sheets: int) -> None:
+            emit_progress(
+                progress,
+                PipelinePhase.RATING_FOOTAGE,
+                message=f"{moment_count} moments",
+                step=done,
+                total=total_sheets,
+            )
+
+        _on_sheet(0, len(sheets))
+        ratings = rate_moments(sheets, backends, output_dir, on_progress=_on_sheet)
+    else:
+        ratings = []
     kept = [rating for rating in ratings if rating.keep and rating.cinematic_score >= 0.55]
+    if ratings:
+        emit_progress(
+            progress,
+            PipelinePhase.RATING_FOOTAGE,
+            message=f"kept {len(kept)} · rejected {len(ratings) - len(kept)}",
+        )
+    emit_progress(progress, PipelinePhase.DESIGNING_EDIT)
     edit = decide_edit(kept, slots, backends, output_dir) if kept else None
     used_agent = edit is not None
+    if edit is not None:
+        emit_progress(progress, PipelinePhase.DESIGNING_EDIT, message=edit.arc[:70])
+    emit_progress(progress, PipelinePhase.ASSEMBLING_CUT)
     plan = assemble_cut_plan(edit, slots, moment_index, media) if edit is not None else None
     if plan is None or len(plan.timeline.clips) < max(1, len(slots) // 2):
         # No agent, or the agent's edit was too sparse/infeasible -> deterministic grid fill,
@@ -186,6 +252,14 @@ def _build_director_3_plan(analysis: AnalysisReport, output_dir: Path) -> CutPla
             edit = fallback_edit(ratings, slots)
         plan = assemble_cut_plan(edit, slots, moment_index, media)
     assert edit is not None  # always set: the agent edit or the deterministic fill
+    transitions = sum(
+        1 for clip in plan.timeline.clips if clip.transition_in.kind.value != "hard_cut"
+    )
+    emit_progress(
+        progress,
+        PipelinePhase.ASSEMBLING_CUT,
+        message=f"{len(plan.timeline.clips)} cuts on the beat · {transitions} transitions",
+    )
     write_json_models(output_dir / "footage-ratings.json", ratings)
     write_json_models(output_dir / "rhythm-grid.json", slots)
     write_json_model(output_dir / "edit-decision.json", edit)

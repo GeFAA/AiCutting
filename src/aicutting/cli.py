@@ -57,22 +57,38 @@ def cut(
         typer.echo(str(exc))
         raise typer.Exit(code=2) from exc
 
-    try:
-        from aicutting.pipeline import CutPipeline
+    from aicutting.pipeline import CutPipeline
+    from aicutting.tui import RunReporter
 
-        result = CutPipeline().cut(
-            input_dir=inputs.input_dir,
-            music_path=inputs.music_path,
-            output_dir=inputs.output_dir,
-            dry_run=dry_run,
-        )
+    try:
+        with RunReporter() as reporter:
+            result = CutPipeline().cut(
+                input_dir=inputs.input_dir,
+                music_path=inputs.music_path,
+                output_dir=inputs.output_dir,
+                dry_run=dry_run,
+                progress=reporter,
+            )
     except AiCuttingError as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=2) from exc
-    typer.echo(f"Analysis: {result.analysis}")
-    typer.echo(f"Cut plan: {result.cut_plan}")
-    typer.echo(f"Timeline: {result.timeline}")
-    typer.echo(f"Final video: {result.final_video}")
+    _print_summary(result.output_dir, result.final_video, dry_run=dry_run)
+
+
+def _print_summary(output_dir: Path, final_video: Path, dry_run: bool) -> None:
+    from rich.console import Console
+    from rich.panel import Panel
+
+    report = output_dir / "report.html"
+    lines = [f"[bold]Output[/]   {output_dir}"]
+    if report.exists():
+        lines.append(f"[bold]Report[/]   {report}")
+        lines.append("[dim]         open report.html to see every shot the AI kept and why[/]")
+    if dry_run:
+        lines.append("[dim]Artifacts only (dry run). Run without --dry-run to render the video.[/]")
+    else:
+        lines.append(f"[bold]Video[/]    {final_video}")
+    Console().print(Panel("\n".join(lines), title="Done", border_style="green", expand=False))
 
 
 if __name__ == "__main__":

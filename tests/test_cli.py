@@ -26,8 +26,8 @@ def test_cut_command_dry_run_reports_artifacts(monkeypatch, tmp_path) -> None:
     (input_dir / "clip.mp4").write_text("", encoding="utf-8")
 
     class FakePipeline:
-        def cut(self, input_dir, music_path, output_dir, dry_run):
-            del input_dir, music_path, dry_run
+        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None):
+            del input_dir, music_path, dry_run, progress
             output_dir.mkdir(parents=True, exist_ok=True)
             return PipelineResult(
                 analysis=output_dir / "analysis.json",
@@ -42,7 +42,7 @@ def test_cut_command_dry_run_reports_artifacts(monkeypatch, tmp_path) -> None:
     result = CliRunner().invoke(app, ["cut", str(input_dir), "--out", str(output_dir), "--dry-run"])
 
     assert result.exit_code == 0
-    assert "Analysis:" in result.stdout
+    assert "Artifacts only" in result.stdout
 
 
 def test_cut_command_reports_pipeline_errors(monkeypatch, tmp_path) -> None:
@@ -53,8 +53,8 @@ def test_cut_command_reports_pipeline_errors(monkeypatch, tmp_path) -> None:
     input_dir.mkdir()
 
     class FailingPipeline:
-        def cut(self, input_dir, music_path, output_dir, dry_run):
-            del input_dir, music_path, output_dir, dry_run
+        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None):
+            del input_dir, music_path, output_dir, dry_run, progress
             raise ExternalToolError("FFmpeg is not available on PATH.")
 
     monkeypatch.setattr("aicutting.pipeline.CutPipeline", FailingPipeline)

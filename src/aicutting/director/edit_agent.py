@@ -1,5 +1,6 @@
 import json
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -99,6 +100,7 @@ def rate_moments(
     backends: list[AgentBackend],
     workdir: Path,
     runner: AgentRunner = subprocess.run,
+    on_progress: Callable[[int, int], None] | None = None,
 ) -> list[MomentRating]:
     available = _preferred_available_backends(backends)
     if not available or not sheets:
@@ -113,6 +115,9 @@ def rate_moments(
                 ratings.extend(_rate_one(backend, sheet, schema_path, workdir, index, runner))
             except Exception:  # one bad sheet must not abort the batch
                 continue
+            finally:
+                if on_progress is not None:
+                    on_progress(index, len(sheets))
         if ratings:
             return ratings
     return []

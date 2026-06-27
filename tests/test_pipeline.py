@@ -59,13 +59,16 @@ def test_pipeline_writes_artifacts_without_rendering(tmp_path: Path) -> None:
     assert (output_dir / "timeline.json").exists()
 
 
-def test_pipeline_emits_progress_events_for_dry_run(tmp_path: Path) -> None:
+def test_pipeline_emits_progress_events_for_dry_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "out"
     input_dir.mkdir()
     video = input_dir / "clip.mp4"
     video.write_text("", encoding="utf-8")
     events: list[ProgressEvent] = []
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
 
     report = AnalysisReport(
         media=[MediaAsset(path=video, duration_s=8, width=1920, height=1080, fps=25)],
@@ -95,21 +98,28 @@ def test_pipeline_emits_progress_events_for_dry_run(tmp_path: Path) -> None:
         progress=events.append,
     )
 
-    assert [event.phase for event in events] == [
+    phases = list(dict.fromkeys(event.phase for event in events))
+    assert phases == [
         PipelinePhase.ANALYZING_FOOTAGE,
-        PipelinePhase.PLANNING_CUT,
+        PipelinePhase.IDENTIFYING_LOCATION,
+        PipelinePhase.DESIGNING_EDIT,
+        PipelinePhase.ASSEMBLING_CUT,
+        PipelinePhase.BUILDING_REPORT,
         PipelinePhase.EXPORTING_RESOLVE_HANDOFF,
         PipelinePhase.DONE,
     ]
 
 
-def test_pipeline_emits_render_progress_when_rendering(tmp_path: Path) -> None:
+def test_pipeline_emits_render_progress_when_rendering(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "out"
     input_dir.mkdir()
     video = input_dir / "clip.mp4"
     video.write_text("", encoding="utf-8")
     events: list[ProgressEvent] = []
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
 
     report = AnalysisReport(
         media=[MediaAsset(path=video, duration_s=8, width=1920, height=1080, fps=25)],
@@ -139,9 +149,13 @@ def test_pipeline_emits_render_progress_when_rendering(tmp_path: Path) -> None:
         progress=events.append,
     )
 
-    assert [event.phase for event in events] == [
+    phases = list(dict.fromkeys(event.phase for event in events))
+    assert phases == [
         PipelinePhase.ANALYZING_FOOTAGE,
-        PipelinePhase.PLANNING_CUT,
+        PipelinePhase.IDENTIFYING_LOCATION,
+        PipelinePhase.DESIGNING_EDIT,
+        PipelinePhase.ASSEMBLING_CUT,
+        PipelinePhase.BUILDING_REPORT,
         PipelinePhase.EXPORTING_RESOLVE_HANDOFF,
         PipelinePhase.RENDERING_FINAL_VIDEO,
         PipelinePhase.DONE,
