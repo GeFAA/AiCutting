@@ -191,6 +191,29 @@ def test_smooth_zoom_clip_gets_zoompan_animation() -> None:
     assert "xfade=transition=smoothleft" in filter_complex
 
 
+def test_smooth_zoom_fps_matches_clip_fps_for_fractional_rate() -> None:
+    # 59.94 fps (60000/1001) must not be rounded differently inside zoompan: a rounded value
+    # resolves to a different rational, and xfade rejects the frame-rate mismatch between an
+    # animated clip and its neighbours ("input link frame rates do not match").
+    base = _timeline()
+    fractional = 60000 / 1001
+    timeline = base.model_copy(update={"fps": fractional})
+    second = timeline.clips[0].model_copy(
+        update={
+            "asset_path": Path("clip-b.mp4"),
+            "timeline_start_s": 4.0,
+            "transition_in": Transition(kind=TransitionType.SMOOTH_ZOOM, duration_s=0.25),
+        }
+    )
+    timeline = timeline.model_copy(update={"clips": [timeline.clips[0], second]})
+
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert f":fps={fractional}" in filter_complex  # zoompan uses the exact clip fps
+    assert ":fps=59.9401:" not in filter_complex  # not the rounded, mismatching rational
+
+
 def test_whip_blur_uses_distinct_transition_name() -> None:
     base = _timeline()
     second = base.clips[0].model_copy(

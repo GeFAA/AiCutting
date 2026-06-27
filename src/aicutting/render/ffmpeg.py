@@ -151,6 +151,8 @@ def _clip_animation(clip: TimelineClip, timeline: Timeline) -> str:
         return (
             ",zoompan=z='min(zoom+0.0015,1.12)':d=1"
             ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-            f":s={timeline.width}x{timeline.height}:fps={timeline.fps:g}"
+            # fps must match the per-clip `fps=` filter exactly: a rounded value resolves to a
+            # different rational (e.g. 599401/10000 vs 60000/1001) and xfade rejects the mismatch.
+            f":s={timeline.width}x{timeline.height}:fps={timeline.fps}"
         )
     return ""
