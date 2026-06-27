@@ -109,9 +109,9 @@ def test_assemble_pins_cuts_to_beat_positions() -> None:
         assert round(clip.timeline_start_s, 3) == round(slot.start_s, 3)
 
 
-def test_assemble_punches_accent_drops_left_as_hard_cut() -> None:
-    # An accent (drop) the agent left as a plain hard cut becomes a visible transition so it hits.
-    slots = _slots(3)  # slot 1 is the accent (is_accent True)
+def test_assemble_smooths_calm_cuts_and_keeps_drops_punchy() -> None:
+    # Gentle transitions flow through the calm cuts; the energetic drop (slot 1) stays a hard cut.
+    slots = _slots(3)  # slot 1 is the drop (energy 0.8); slots 0/2 are calm (energy 0.2)
     moments = _moments(["m1", "m2", "m3"])
     media = [
         MediaAsset(path=Path("flight.mp4"), duration_s=120.0, width=1920, height=1080, fps=25.0)
@@ -128,7 +128,8 @@ def test_assemble_punches_accent_drops_left_as_hard_cut() -> None:
 
     plan = assemble_cut_plan(edit, slots, moments, media)
 
-    assert plan.timeline.clips[1].transition_in.kind != TransitionType.HARD_CUT
+    assert plan.timeline.clips[1].transition_in.kind == TransitionType.HARD_CUT  # drop stays punchy
+    assert plan.timeline.clips[2].transition_in.kind != TransitionType.HARD_CUT  # calm cut smoothed
 
 
 def test_fallback_edit_assigns_without_repeats() -> None:

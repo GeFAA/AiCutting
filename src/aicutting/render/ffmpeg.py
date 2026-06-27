@@ -39,7 +39,7 @@ def build_ffmpeg_command(
     concat_inputs: list[str] = []
     for index, clip in enumerate(timeline.clips):
         label = f"v{index}"
-        animation = _clip_animation(clip, timeline)
+        animation = _clip_animation(clip, timeline, index)
         video_filters.append(
             f"[{index}:v]setpts=PTS-STARTPTS,scale={timeline.width}:{timeline.height},"
             f"fps={timeline.fps},format=yuv420p{animation},settb=AVTB[{label}]"
@@ -144,23 +144,37 @@ def _xfade_transition_name(kind: TransitionType) -> str:
     }.get(kind, "fade")
 
 
-def _clip_animation(clip: TimelineClip, timeline: Timeline) -> str:
+# Anchor points the push-in drifts toward — cycling these gives each held shot a different,
+# subtly directional Ken Burns move instead of every clip zooming dead-centre.
+_PUSH_TARGETS: tuple[tuple[str, str], ...] = (
+    ("iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"),  # centre
+    ("iw-iw/zoom", "0"),  # toward top-right
+    ("0", "ih-ih/zoom"),  # toward bottom-left
+    ("0", "0"),  # toward top-left
+    ("iw-iw/zoom", "ih-ih/zoom"),  # toward bottom-right
+)
+
+
+def _clip_animation(clip: TimelineClip, timeline: Timeline, index: int) -> str:
     # A SMOOTH_ZOOM clip gets a pronounced push-in (placed on accents); any long held shot gets a
-    # gentle push-in so it reads as cinematic motion instead of a frozen frame.
+    # gentle push-in so it reads as cinematic motion instead of a frozen frame. The anchor cycles
+    # so consecutive held shots move toward different corners rather than all pushing dead-centre.
+    target = _PUSH_TARGETS[index % len(_PUSH_TARGETS)]
     if clip.transition_in.kind == TransitionType.SMOOTH_ZOOM:
-        return _zoompan(timeline, increment=0.0015, cap=1.12)
+        return _zoompan(timeline, increment=0.0015, cap=1.12, target=target)
     if clip.timeline_duration_s >= 4.0:
-        return _zoompan(timeline, increment=0.0004, cap=1.10)
+        return _zoompan(timeline, increment=0.0004, cap=1.10, target=target)
     return ""
 
 
-def _zoompan(timeline: Timeline, increment: float, cap: float) -> str:
+def _zoompan(timeline: Timeline, increment: float, cap: float, target: tuple[str, str]) -> str:
     # zoompan with d=1 emits one output frame per input frame, so the zoom accumulates over the
     # clip without changing its frame count (d=duration would explode the frames on a video input).
     # fps must match the per-clip `fps=` filter exactly: a rounded value resolves to a different
     # rational (e.g. 599401/10000 vs 60000/1001) and xfade rejects the mismatch.
+    x, y = target
     return (
         f",zoompan=z='min(zoom+{increment:g},{cap:g})':d=1"
-        ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+        f":x='{x}':y='{y}'"
         f":s={timeline.width}x{timeline.height}:fps={timeline.fps}"
     )

@@ -221,6 +221,22 @@ def test_long_held_clip_gets_subtle_pushin() -> None:
     assert "zoompan" in filter_complex
 
 
+def test_held_shots_use_varied_push_anchors() -> None:
+    # Consecutive held shots should push toward different anchors, not all dead-centre.
+    base = _timeline()
+    second = base.clips[0].model_copy(
+        update={"asset_path": Path("clip-b.mp4"), "timeline_start_s": 4.0}
+    )
+    timeline = base.model_copy(update={"clips": [base.clips[0], second]})
+
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert filter_complex.count("zoompan") == 2
+    assert "x='iw/2-(iw/zoom/2)'" in filter_complex  # clip 0 -> centre
+    assert "x='iw-iw/zoom'" in filter_complex  # clip 1 -> a corner
+
+
 def test_short_clip_has_no_pushin() -> None:
     short = _timeline().clips[0].model_copy(update={"source_end_s": 2.5})  # 1.5 s clip
     timeline = _timeline().model_copy(update={"clips": [short]})

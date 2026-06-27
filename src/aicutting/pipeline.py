@@ -223,6 +223,7 @@ def _build_director_3_plan(
     else:
         ratings = []
     kept = [rating for rating in ratings if rating.keep and rating.cinematic_score >= 0.55]
+    kept = _diversify(kept, moment_index)
     if ratings:
         emit_progress(
             progress,
@@ -275,6 +276,27 @@ def _build_director_3_plan(
         ),
     )
     return plan
+
+
+def _diversify(
+    kept: list[MomentRating], moments: dict[str, FootageMoment], min_gap_s: float = 8.0
+) -> list[MomentRating]:
+    # Drop near-duplicate keeps (same file + shot type within a few seconds), keeping the highest
+    # scored, so the montage shows variety instead of repeating one composition.
+    chosen: list[MomentRating] = []
+    seen: dict[tuple[Path, str], list[float]] = {}
+    for rating in sorted(kept, key=lambda item: item.cinematic_score, reverse=True):
+        moment = moments.get(rating.moment_id)
+        if moment is None:
+            chosen.append(rating)
+            continue
+        bucket = (moment.asset_path, rating.shot_type.value)
+        times = seen.setdefault(bucket, [])
+        if any(abs(moment.timestamp_s - other) < min_gap_s for other in times):
+            continue
+        times.append(moment.timestamp_s)
+        chosen.append(rating)
+    return chosen
 
 
 def _ratings_from_candidates(

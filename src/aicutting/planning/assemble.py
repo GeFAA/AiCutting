@@ -99,9 +99,10 @@ def assemble_cut_plan(
         if position == 0:
             effect = TransitionType.HARD_CUT  # first clip is the chain base, no rendered transition
         else:
-            # Punch the more energetic cuts the agent left plain, but keep at least two hard cuts
-            # between transitions so they stay tasteful instead of constant.
-            if effect == TransitionType.HARD_CUT and slot.energy >= 0.45 and since_transition >= 2:
+            # Let gentle crossfades flow through the calm sections; leave the energetic drops as
+            # punchy hard cuts on the beat (a dissolve on a drop feels wrong). Space them out so
+            # transitions stay tasteful instead of constant.
+            if effect == TransitionType.HARD_CUT and slot.energy < 0.4 and since_transition >= 2:
                 effect = _accent_transition(transition_count)
                 transition_count += 1
             if effect == prev_effect and effect != TransitionType.HARD_CUT:
