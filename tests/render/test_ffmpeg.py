@@ -126,6 +126,11 @@ def test_build_ffmpeg_command_adds_title_overlay_when_present() -> None:
     command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
     filter_complex = command[command.index("-filter_complex") + 1]
     assert "drawtext=" in filter_complex
+    assert "Madeira Coast" in filter_complex
+    # The cinematic reveal is spliced onto [vbase]: a luma-masked, composited [vout].
+    assert "[vbase]format=yuv420p,split=2[base][src]" in filter_complex
+    assert "blend=all_expr=" in filter_complex
+    assert "overlay=eof_action=pass[vout]" in filter_complex
 
 
 def test_render_timeline_wraps_missing_ffmpeg(

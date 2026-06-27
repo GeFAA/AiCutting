@@ -3,7 +3,7 @@ from pathlib import Path
 
 from aicutting.core.errors import ExternalToolError
 from aicutting.core.models import Timeline, TimelineClip, TransitionType
-from aicutting.render.titles import build_drawtext_filter, discover_font
+from aicutting.render.titles import build_title_overlay, discover_font
 
 # Transition kinds rendered as an FFmpeg xfade. 2.0 effect kinds fall back to a stable xfade
 # variant until dedicated filters (zoompan, speed ramps) are wired in.
@@ -50,8 +50,14 @@ def build_ffmpeg_command(
         base_filter = _compose_video_filter(
             timeline, video_filters, concat_inputs, output_label="vbase"
         )
-        drawtext = build_drawtext_filter(timeline.title, discover_font())
-        filter_complex = f"{base_filter};[vbase]{drawtext}[vout]"
+        title_graph = build_title_overlay(
+            timeline.title,
+            discover_font(),
+            timeline.width,
+            timeline.height,
+            timeline.fps,
+        )
+        filter_complex = f"{base_filter};{title_graph}"
     else:
         filter_complex = _compose_video_filter(timeline, video_filters, concat_inputs)
 
