@@ -1,157 +1,144 @@
-# AiCutting
+# 🚁 AiCutting — the AI Drone Director
+
+**Drop in a folder of raw drone clips. Get a beat-synced, colour-coherent, title-carded
+cinematic edit — from one local command.** No timeline, no cloud upload, no manual culling.
 
 [![CI](https://github.com/GeFAA/AiCutting/actions/workflows/ci.yml/badge.svg)](https://github.com/GeFAA/AiCutting/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Platform](https://img.shields.io/badge/runs-100%25%20local-success)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-AiCutting is a local, Windows-first drone video cutting tool. It analyzes a
-folder of footage, optionally follows a music track, rejects weak drone motion,
-builds a clean cinematic timeline, and exports both a rendered video and
-DaVinci Resolve handoff files.
+![From raw lava to a titled green finale](docs/assets/feature-strip.jpg)
 
-The project is designed for creators who want an automatic first cut without
-uploading their footage to a cloud service. Optional Codex or Claude Code
-integration can inspect extracted screenshots and add conservative location
-titles only when confidence is high.
+> A real cut from raw Iceland footage: the lava field opens, the location title rises from
+> behind the ridge, and the journey resolves into the green highlands — every cut on the beat.
 
-## Current Status
+---
 
-AiCutting is early alpha software. The core pipeline, desktop launcher, CLI,
-FFmpeg render path, Resolve handoff artifacts, motion rejection, beat-aware
-planning, and optional local agent location titles are implemented and covered
-by automated tests. The user experience is still being refined.
+## ✨ What it does
 
-### AI Drone Director 3.0
+- 🎬 **Watches your footage like an editor.** A local vision agent rates every moment, keeps the
+  sharp, well-composed shots with real depth, and **throws out landings, takeoffs, low ground
+  passes and filler.**
+- 🥁 **Cuts exactly on the beat.** Pacing follows the music's energy — calm shots breathe, the
+  drops cut fast — and every cut lands *on the beat*, not near it.
+- 🎨 **Tells a visual story.** A per-shot colour signature orders the clips into a coherent
+  journey (dark lava grouped first, flowing into the green) instead of jumping between scenes.
+- 🎭 **Cinematic title that emerges from behind the terrain.** The location is recognised from
+  the scenery, the date is read from the footage metadata, and the title rises out from behind
+  the ridge — not a flat overlay.
+- 🌀 **Tasteful motion & transitions.** Directional Ken-Burns push-ins on held shots, gentle
+  crossfades through the calm sections, punchy hard cuts on the drops.
+- 📊 **Shows its work.** A self-contained `report.html` with a thumbnail of every chosen clip and
+  *why* it was kept, plus a live terminal view of each stage as it runs.
+- 🔒 **100% local.** Vision agent (Codex / Claude Code) + FFmpeg. Your footage never leaves the
+  machine. No agent? A deterministic fallback still produces a full, beat-synced edit.
+- 🎞️ **Hands off to your NLE.** Exports a rendered MP4 *and* DaVinci Resolve / FCPXML / EDL
+  interchange files.
 
-AiCutting's current planning engine is the agent-driven AI Drone Director 3.0
-path, which turns on automatically for drone footage. It:
+---
 
-- samples the footage into contact sheets and asks the local vision agent
-  (Codex, falling back to Claude Code) to rate each moment, classify the drone
-  shot, and reject takeoff, landing, search-flight, shaky, and boring frames,
-- turns the music into a beat grid that fills the whole song, with clip lengths
-  driven by energy (calm = longer clips, drops = fast cuts on the beat),
-- lets the agent design the edit — which moment fills each slot, the arc, and
-  where strong effects fit — then assembles it deterministically with variety
-  guards (no repeats, no identical shots back to back, spread across files),
-- renders real effects (zoom push-in, varied transitions) only where they fit,
-- writes auditable review artifacts for every stage.
+## 🎥 The result
 
-If no local agent is available (or the installed agent is outdated), a
-deterministic fallback editor still produces a full-length, beat-synced,
-effect-aware edit offline. The agent needs a current Codex or Claude Code CLI.
+| The colour journey | The title reveal |
+| --- | --- |
+| ![lava opening](docs/assets/journey-lava.jpg) | ![title emerging from behind the ridge](docs/assets/hero-title-reveal.jpg) |
+| Lava shots are grouped at the open… | …and the title rises out from *behind* the terrain. |
+| ![green finale](docs/assets/journey-green.jpg) | Location auto-detected, date from metadata. |
+| …flowing into the green highlands later. | |
 
-## Highlights
+---
 
-- Local video analysis for drone and landscape B-roll.
-- Motion scoring that rejects shaky yaw, search-flight, takeoff, and landing
-  segments when they are not useful for a clean edit.
-- Optional music analysis for beat and energy-aware cuts.
-- Confidence-gated location titles via local Codex or Claude Code backends.
-- Native Windows desktop entry point with `Start AiCutting.cmd`.
-- CLI for repeatable runs and dry-run artifact checks.
-- FFmpeg renderer plus Resolve handoff exports under `resolve/`.
-- AI Drone Director 3.0 planning: agent-rated footage, beat-driven full-length
-  edits, and motion-aware effects (details below).
-- JSON artifacts for auditability, including `analysis.json`, `cut-plan.json`,
-  `timeline.json`, `director-report.json`, `rejected-segments.json`,
-  `footage-ratings.json`, `rhythm-grid.json`, `edit-decision.json`, and
-  `director-3-report.json`.
-
-## Quick Start
-
-### Option 1: Windows Desktop
-
-1. Install Python 3.11 or newer.
-2. Install FFmpeg and make sure `ffmpeg` and `ffprobe` are available on `PATH`.
-3. Clone or download this repository.
-4. Double-click [Start AiCutting.cmd](Start%20AiCutting.cmd).
-5. Select a video folder, optional music file or folder, and an output folder.
-6. Start the cut and review the generated output files.
-
-The launcher first tries to use your existing Python environment. If required
-dependencies are missing, it can create a local `.venv` automatically.
-
-### Option 2: Command Line
+## 🚀 Quick Start
 
 ```powershell
+# 1. install (Python 3.11+, with FFmpeg on PATH)
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 py -m pip install -e ".[gui]"
+
+# 2. cut a folder of clips to a song
+aicutting cut .\input-videos --music .\track.mp3 --out .\output
+
+# 3. open output\report.html to see every decision, and output\final.mp4 to watch
 ```
 
-Run the desktop app:
+Just want the plan and the report without rendering?
 
 ```powershell
-aicutting-studio
+aicutting cut .\input-videos --music .\track.mp3 --out .\output --dry-run
 ```
 
-Run an automatic cut:
+Prefer a window? Double-click **`Start AiCutting.cmd`** (Windows) or run `aicutting-studio`.
+More setup notes: [docs/quickstart.md](docs/quickstart.md).
 
-```powershell
-aicutting cut .\input-videos --music .\music.mp3 --out .\output
+---
+
+## 🧠 How it works
+
+```
+ footage ─► analyse + beat grid ─► identify location (vision) ─► sample moments
+        ─► rate & reject (vision agent) ─► diversify ─► colour-sequence the journey
+        ─► lay onto the beat grid (exact) ─► motion + transitions ─► title reveal
+        ─► render MP4  +  report.html  +  Resolve / FCPXML / EDL
 ```
 
-Create artifacts without rendering the final video:
+1. **Analyse** every clip and turn the music into a full-length beat grid with energy.
+2. **Identify the location** from representative frames (vision agent).
+3. **Sample** the footage into contact sheets and **rate every moment** — keep cinematic shots
+   with depth, reject landings / low passes / shaky / filler — then **diversify** to drop
+   near-duplicates.
+4. **Sequence by colour** into a coherent journey and **lay it onto the beat grid** so every cut
+   is exact and energy-driven.
+5. **Add craft** — directional push-ins, cohesive crossfades, and the cinematic title reveal.
+6. **Render** the MP4 and write a visual `report.html` plus NLE handoff files.
 
-```powershell
-aicutting cut .\input-videos --out .\output --dry-run
-```
+Every stage writes an auditable JSON artifact (`footage-ratings.json`, `rhythm-grid.json`,
+`edit-decision.json`, `cut-plan.json`, `timeline.json`, `director-3-report.json`,
+`location-suggestions.json`).
 
-More detailed setup notes are in [docs/quickstart.md](docs/quickstart.md).
+---
+
+## 📊 Total transparency
+
+Open **`report.html`** after a run to see exactly what the AI did: a thumbnail card for every
+clip in the cut (source, length, transition, on-beat marker, and the agent's reason), the
+kept-vs-rejected breakdown with grouped rejection reasons, and the energy grid that drove the
+pacing. The terminal shows the same stages **live** as the run progresses.
+
+---
+
+## 🛣️ Roadmap — 4.0
+
+3.0 makes a clean, beat-synced, colour-coherent, titled cut. **4.0 makes it feel hand-crafted**:
+motion-aware judgment, edits that follow the song's structure, real colour grading, hero-shot
+speed ramps, vertical/social masters, and style presets. See the full vision in
+**[docs/ROADMAP.md](docs/ROADMAP.md)**.
+
+---
 
 ## Requirements
 
-- Windows 10 or newer is the primary target.
-- Python 3.11 or newer.
-- FFmpeg on `PATH`.
-- Optional: DaVinci Resolve for importing the handoff files.
-- Optional: Codex or Claude Code on `PATH` for automatic location titles.
-
-## Local AI Agent Behavior
-
-AiCutting does not require an API key for the core cut pipeline. If Codex or
-Claude Code is available locally, AiCutting extracts a few representative
-screenshots from strong footage candidates and asks the local agent for a
-structured location suggestion. The title is rendered only when the suggestion
-passes the confidence gate.
-
-If no agent is available, or if the agent is uncertain, AiCutting writes the
-reason to `location-suggestions.json` and omits the title overlay.
+- Python 3.11+ · FFmpeg (`ffmpeg` + `ffprobe`) on `PATH` · Windows 10+ (primary target).
+- Optional: a current **Codex** or **Claude Code** CLI for the vision agent (selection, location).
+  Without it, the deterministic fallback still produces a full edit.
+- Optional: DaVinci Resolve for the interchange handoff.
 
 ## Privacy
 
-The deterministic pipeline works locally on your machine. Video files are read
-from the folders you select and outputs are written to your chosen output
-folder. Optional Codex or Claude Code behavior depends on those tools and their
-own account settings, so review their configuration before using agent-assisted
-location titles on private footage.
+The pipeline runs locally; your video files are read from the folders you pick and written to
+the output folder you choose. The optional vision agent uses your local Codex / Claude Code
+install and its own account settings — review those before running agent-assisted steps on
+private footage. See [SECURITY.md](SECURITY.md).
 
 ## Development
 
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
 py -m pip install -e ".[dev,gui]"
-py -m pytest
-py -m ruff check .
-py -m mypy src
+py -m pytest        # test suite
+py -m ruff check .  # lint
+py -m mypy src      # types (strict)
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
-See [SECURITY.md](SECURITY.md) for security and private-footage notes.
-
-## Roadmap
-
-- Improve the non-technical desktop workflow and error recovery.
-- Add stronger visual review tools for rejected and selected segments.
-- Expand Resolve integration beyond interchange exports.
-- Add more robust packaging for non-developer installation.
-- Continue improving motion, beat, and location-title quality on real drone
-  projects.
-
-## Author
-
-AiCutting is created and maintained by [GeFAA](https://github.com/GeFAA).
-
-## License
-
-AiCutting is released under the MIT License. See [LICENSE](LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Built and maintained by
+[GeFAA](https://github.com/GeFAA). Released under the [MIT License](LICENSE).

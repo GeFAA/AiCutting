@@ -51,6 +51,7 @@ artifacts.
 
 Typical output files:
 
+- `report.html`: a visual report of every clip the AI kept and why — open this first.
 - `final.mp4`: rendered edit.
 - `analysis.json`: detected media facts and scored clip candidates.
 - `cut-plan.json`: selected edit plan.
