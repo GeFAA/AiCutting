@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from aicutting.agents.backends import AgentBackend
+from aicutting.analysis.motion import analyze_motion_frames
 from aicutting.core.models import (
     AnalysisReport,
     AudioAnalysis,
@@ -13,13 +15,21 @@ from aicutting.core.models import (
     MediaAsset,
 )
 from aicutting.core.progress import PipelinePhase, ProgressEvent
+from aicutting.director.edit_models import FootageMoment
 from aicutting.director.models import LocationSuggestion
 from aicutting.pipeline import (
     CutPipeline,
     PipelineDependencies,
     _compose_title,
+    _gate_moments_by_motion,
     default_analyze,
 )
+
+
+def _motion_frame(x_offset: int = 0) -> np.ndarray:
+    frame = np.zeros((80, 120, 3), dtype=np.uint8)
+    frame[25:55, 35 + x_offset : 85 + x_offset] = 255
+    return frame
 
 
 def test_pipeline_writes_artifacts_without_rendering(tmp_path: Path) -> None:
@@ -359,3 +369,106 @@ def test_compose_title_falls_back_to_date_only() -> None:
 
 def test_compose_title_none_without_place_or_date() -> None:
     assert _compose_title(None, None) is None
+
+
+def _scored_moments() -> tuple[list[FootageMoment], dict[str, object]]:
+    stable = analyze_motion_frames([_motion_frame(index * 3) for index in range(5)])
+    jittery = analyze_motion_frames([_motion_frame(offset) for offset in [0, 16, -10, 22, -6]])
+    moments = [
+        FootageMoment(moment_id=f"s{i}", asset_path=Path("a.mp4"), timestamp_s=float(i))
+        for i in range(5)
+    ]
+    moments.append(FootageMoment(moment_id="jit", asset_path=Path("a.mp4"), timestamp_s=99.0))
+    scores: dict[str, object] = {moment.moment_id: stable for moment in moments[:5]}
+    scores["jit"] = jittery
+    return moments, scores
+
+
+def test_gate_moments_by_motion_drops_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    moments, scores = _scored_moments()
+    monkeypatch.setattr("aicutting.pipeline.score_moment_motion", lambda _moments: scores)
+
+    kept = {moment.moment_id for moment in _gate_moments_by_motion(moments)}
+
+    assert "jit" not in kept
+    assert kept == {"s0", "s1", "s2", "s3", "s4"}
+
+
+def test_gate_moments_by_motion_survives_scorer_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    moments = [FootageMoment(moment_id="m1", asset_path=Path("a.mp4"), timestamp_s=1.0)]
+
+    def _boom(_moments: object) -> dict[str, object]:
+        raise RuntimeError("cv2 exploded")
+
+    monkeypatch.setattr("aicutting.pipeline.score_moment_motion", _boom)
+
+    assert _gate_moments_by_motion(moments) == moments
+
+
+def test_gate_moments_by_motion_handles_empty_media() -> None:
+    assert _gate_moments_by_motion([]) == []
+
+
+def test_pipeline_gates_shaky_moments_before_contact_sheets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+
+    sampled = [
+        FootageMoment(moment_id=f"s{i}", asset_path=video, timestamp_s=float(20 + i))
+        for i in range(5)
+    ]
+    sampled.append(FootageMoment(moment_id="shaky", asset_path=video, timestamp_s=40.0))
+    stable = analyze_motion_frames([_motion_frame(index * 3) for index in range(5)])
+    jittery = analyze_motion_frames([_motion_frame(offset) for offset in [0, 16, -10, 22, -6]])
+    scores = {moment.moment_id: stable for moment in sampled[:5]}
+    scores["shaky"] = jittery
+
+    seen: list[list[str]] = []
+
+    def _capture_sheets(moments: list[FootageMoment], _out: Path, **_kwargs: object) -> list:
+        seen.append([moment.moment_id for moment in moments])
+        return []
+
+    monkeypatch.setattr("aicutting.pipeline.sample_footage_moments", lambda _media: sampled)
+    monkeypatch.setattr("aicutting.pipeline.score_moment_motion", lambda _moments: scores)
+    monkeypatch.setattr("aicutting.pipeline.build_contact_sheets", _capture_sheets)
+    monkeypatch.setattr("aicutting.pipeline.resolve_location_suggestions", lambda *a, **k: [])
+    monkeypatch.setattr(
+        "aicutting.pipeline.detect_agent_backends",
+        lambda: [AgentBackend(name="codex", executable="codex", available=True)],
+    )
+
+    report = AnalysisReport(
+        media=[MediaAsset(path=video, duration_s=60, width=1920, height=1080, fps=25)],
+        candidates=[
+            ClipCandidate(
+                asset_path=video,
+                start_s=20,
+                end_s=25,
+                quality_score=0.9,
+                motion_score=0.4,
+                diversity_key="c0",
+            )
+        ],
+        audio=AudioAnalysis(
+            path=None, duration_s=12.0, beats_s=[0, 1, 2, 3, 4, 5, 6, 7, 8], energy=[0.2, 0.9]
+        ),
+    )
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: report,
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=True)
+
+    assert seen, "build_contact_sheets was never reached"
+    assert "shaky" not in seen[0]
+    assert sum(1 for mid in seen[0] if mid.startswith("s")) == 5

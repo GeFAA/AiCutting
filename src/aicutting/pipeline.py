@@ -9,6 +9,7 @@ from aicutting.analysis.color import moment_color_signatures
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.footage_meta import recording_date_label
+from aicutting.analysis.motion import score_moment_motion, select_usable_moments
 from aicutting.analysis.screenshots import (
     build_contact_sheets,
     extract_location_keyframes,
@@ -193,6 +194,20 @@ def _location_candidates(report: AnalysisReport, limit: int = 3) -> list[ClipCan
     return sorted(candidates, key=lambda candidate: candidate.director_score, reverse=True)[:limit]
 
 
+def _gate_moments_by_motion(moments: list[FootageMoment]) -> list[FootageMoment]:
+    # Motion-aware moment selection (4.0 Pillar B): the vision agent only ever sees single still
+    # thumbnails and cannot judge camera motion, so drop shaky / searching / unstable moments
+    # here -- before the contact sheets and the agent -- using analysis/motion. Best-effort:
+    # empty input, unreadable files, or any failure keep the original moments (never starve).
+    if not moments:
+        return moments
+    try:
+        scores = score_moment_motion(moments)
+        return select_usable_moments(moments, scores)
+    except Exception:
+        return moments
+
+
 def _build_director_3_plan(
     analysis: AnalysisReport, output_dir: Path, progress: ProgressCallback | None = None
 ) -> CutPlan:
@@ -202,6 +217,7 @@ def _build_director_3_plan(
     slots = build_rhythm_grid(beat_plan, choose_target_duration(total))
     backends = detect_agent_backends()
     moments = sample_footage_moments(media)
+    moments = _gate_moments_by_motion(moments)
     moment_index: dict[str, FootageMoment] = {moment.moment_id: moment for moment in moments}
     sheets = (
         build_contact_sheets(moments, output_dir / "contact-sheets")
