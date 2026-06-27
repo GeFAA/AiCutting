@@ -26,6 +26,16 @@ def test_high_energy_slots_are_shorter_than_calm_slots() -> None:
     assert len(loud_grid) > len(calm_grid)
 
 
+def test_grid_snaps_cuts_to_downbeats() -> None:
+    # Every cut should land on a downbeat (every 4th beat) so it hits a strong beat.
+    beats = [i * 0.5 for i in range(64)]  # 32 s; downbeats at i % 4 == 0
+    audio = AudioAnalysis(path=None, duration_s=32.0, beats_s=beats, energy=[0.5])
+    grid = build_rhythm_grid(build_beat_plan(audio), target_duration_s=32.0)
+
+    downbeats = {round(beats[i], 3) for i in range(0, len(beats), 4)}
+    assert all(round(slot.start_s, 3) in downbeats for slot in grid)
+
+
 def test_grid_covers_beatless_intro_so_time_stays_absolute() -> None:
     # The song's first beat is at ~9.7 s. The grid must start at 0 (covering the intro) so the
     # assembled timeline's cumulative time equals absolute song time and later cuts land on beats.

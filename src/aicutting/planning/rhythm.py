@@ -3,6 +3,8 @@ from aicutting.director.edit_models import RhythmSlot
 
 _DEFAULT_SLOT_S = 2.5
 _INTRO_SLOT_S = 5.0  # length of each calm establishing slot covering the beatless intro
+_BAR = 4  # beats per bar / downbeat cadence (build_beat_plan marks every 4th beat a downbeat)
+_PHRASE = 16  # beats per phrase (build_beat_plan marks every 16th beat a phrase boundary)
 
 
 def build_rhythm_grid(beat_plan: BeatPlan, target_duration_s: float) -> list[RhythmSlot]:
@@ -22,10 +24,13 @@ def build_rhythm_grid(beat_plan: BeatPlan, target_duration_s: float) -> list[Rhy
     while index < len(beats) - 1:
         start = beats[index]
         energy = _energy_at(beat_plan, start, target_duration_s)
-        # Longer slots than the music's bar so the cut count stays low; big dynamic range so
-        # calm sections breathe (~5 s) and drops cut fast (~1.9 s).
-        span = 4 if energy >= 0.72 else 7 if energy >= 0.45 else 11
-        next_index = min(index + span, len(beats) - 1)
+        # Span whole bars (drops cut on the bar, calm sections breathe ~3 bars) and snap the cut to
+        # a downbeat so it always lands on a strong beat; never run a slot across a phrase boundary
+        # so the cut aligns with the song's structural change.
+        span = _BAR if energy >= 0.72 else 2 * _BAR if energy >= 0.45 else 3 * _BAR
+        next_index = round((index + span) / _BAR) * _BAR
+        next_index = min(next_index, ((index // _PHRASE) + 1) * _PHRASE)
+        next_index = min(max(next_index, index + _BAR), len(beats) - 1)
         end = beats[next_index]
         if end <= start:
             break
@@ -35,7 +40,7 @@ def build_rhythm_grid(beat_plan: BeatPlan, target_duration_s: float) -> list[Rhy
                 start_s=round(start, 3),
                 end_s=round(end, 3),
                 energy=round(energy, 6),
-                is_accent=energy >= 0.72,
+                is_accent=energy >= 0.72 or index % _PHRASE == 0,
                 section=_section_at(beat_plan, start),
             )
         )
