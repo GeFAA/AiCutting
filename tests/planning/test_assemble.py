@@ -132,6 +132,30 @@ def test_assemble_smooths_calm_cuts_and_keeps_drops_punchy() -> None:
     assert plan.timeline.clips[2].transition_in.kind != TransitionType.HARD_CUT  # calm cut smoothed
 
 
+def test_assemble_slow_mos_calm_shots_but_keeps_them_on_beat() -> None:
+    # A calm slot is slowed for a dreamy hold; the slowed clip still occupies exactly the slot
+    # length on the timeline, so the cut stays on the beat.
+    slots = _slots(2)  # slot 0 energy 0.2 (calm), slot 1 energy 0.8 (drop)
+    moments = _moments(["m1", "m2"])
+    media = [
+        MediaAsset(path=Path("flight.mp4"), duration_s=120.0, width=1920, height=1080, fps=25.0)
+    ]
+    edit = EditDecision(
+        arc="x",
+        clips=[
+            EditClip(slot_index=0, moment_id="m1", effect=TransitionType.HARD_CUT, reason=""),
+            EditClip(slot_index=1, moment_id="m2", effect=TransitionType.HARD_CUT, reason=""),
+        ],
+    )
+
+    plan = assemble_cut_plan(edit, slots, moments, media)
+    calm, drop = plan.timeline.clips[0], plan.timeline.clips[1]
+
+    assert calm.speed < 1.0  # calm establishing shot slowed
+    assert drop.speed == 1.0  # energetic drop stays full speed
+    assert round(calm.timeline_duration_s, 3) == 3.0  # still fills the 3 s slot -> beat-exact
+
+
 def test_fallback_edit_assigns_without_repeats() -> None:
     slots = _slots(3)
     kept = [

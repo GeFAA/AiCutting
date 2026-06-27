@@ -20,6 +20,8 @@ from aicutting.director.edit_models import (
 _CALM = {DroneShotType.ESTABLISHING, DroneShotType.TOP_DOWN, DroneShotType.ORBIT}
 _ENERGETIC = {DroneShotType.REVEAL, DroneShotType.APPROACH, DroneShotType.FLY_THROUGH}
 _REUSE_SPACING = 5  # avoid reusing a moment within this many slots while fresh ones remain
+_SLOW_MO = 0.75  # playback speed for calm establishing shots (a dreamy slow drift)
+_SLOW_MO_ENERGY = 0.3  # slow-mo only the genuinely calm slots; drops stay full speed
 
 
 def fallback_edit(kept: list[MomentRating], slots: list[RhythmSlot]) -> EditDecision:
@@ -110,8 +112,13 @@ def assemble_cut_plan(
         # An xfade overlaps its two clips, so the clip must be longer than the slot by the overlap
         # for the post-fade timeline to keep landing exactly on the beat.
         overlap = _effect_duration(effect) if position > 0 else 0.0
+        # Slow-mo the calm establishing shots: take a shorter source window and slow it to fill the
+        # slot, so the cut still lands exactly on the beat (timeline_duration = source / speed).
+        # Energetic drops stay full speed and punchy.
+        speed = _SLOW_MO if slot.energy <= _SLOW_MO_ENERGY else 1.0
         choice = _choose_moment(
-            clip, moments, pool, recent, use_count, slot.duration_s + overlap, durations, trim_s
+            clip, moments, pool, recent, use_count,
+            (slot.duration_s + overlap) * speed, durations, trim_s,
         )
         if choice is None:
             continue
@@ -123,7 +130,7 @@ def assemble_cut_plan(
                 source_end_s=end_s,
                 timeline_start_s=round(cursor, 3),
                 transition_in=Transition(kind=effect, duration_s=overlap),
-                speed=1.0,
+                speed=speed,
                 color_intent="subtle_cinematic",
             )
         )

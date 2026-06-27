@@ -47,8 +47,11 @@ def build_ffmpeg_command(
     for index, clip in enumerate(timeline.clips):
         label = f"v{index}"
         animation = _clip_animation(clip, timeline, index)
+        # Slow-mo clips (speed < 1) stretch their timestamps so the shorter source fills the slot;
+        # speed 1.0 keeps the plain reset so existing behaviour is byte-identical.
+        pts = "PTS-STARTPTS" if clip.speed == 1.0 else f"(PTS-STARTPTS)/{clip.speed:g}"
         video_filters.append(
-            f"[{index}:v]setpts=PTS-STARTPTS,scale={timeline.width}:{timeline.height},"
+            f"[{index}:v]setpts={pts},scale={timeline.width}:{timeline.height},"
             f"fps={timeline.fps},format=yuv420p{_COLOR_GRADE}{animation},settb=AVTB[{label}]"
         )
         concat_inputs.append(f"[{label}]")

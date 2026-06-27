@@ -258,6 +258,17 @@ def test_short_clip_has_no_pushin() -> None:
     assert "zoompan" not in filter_complex
 
 
+def test_slow_mo_clip_stretches_setpts() -> None:
+    base = _timeline()
+    slow = base.clips[0].model_copy(update={"speed": 0.75})
+    timeline = base.model_copy(update={"clips": [slow]})
+
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "setpts=(PTS-STARTPTS)/0.75" in filter_complex
+
+
 def test_whip_blur_uses_distinct_transition_name() -> None:
     base = _timeline()
     second = base.clips[0].model_copy(
