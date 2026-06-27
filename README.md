@@ -28,7 +28,10 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
   the scenery, the date is read from the footage metadata, and the title rises out from behind
   the ridge — not a flat overlay.
 - 🌀 **Tasteful motion & transitions.** Directional Ken-Burns push-ins on held shots, gentle
-  crossfades through the calm sections, punchy hard cuts on the drops.
+  crossfades through the calm sections, slow-mo on the calm establishing shots, and punchy hard
+  cuts on the drops.
+- 🎚️ **Pick a vibe.** `--style` presets — cinematic, epic, chill, or vlog — retune the whole edit
+  (pacing, slow-mo, transitions, grade) from one flag.
 - 📊 **Shows its work.** A self-contained `report.html` with a thumbnail of every chosen clip and
   *why* it was kept, plus a live terminal view of each stage as it runs.
 - 🔒 **100% local.** Vision agent (Codex / Claude Code) + FFmpeg. Your footage never leaves the
@@ -61,6 +64,12 @@ py -m pip install -e ".[gui]"
 aicutting cut .\input-videos --music .\track.mp3 --out .\output
 
 # 3. open output\report.html to see every decision, and output\final.mp4 to watch
+```
+
+Pick a vibe with `--style` — **cinematic** (default), **epic**, **chill**, or **vlog**:
+
+```powershell
+aicutting cut .\input-videos --music .\track.mp3 --out .\output --style epic
 ```
 
 Just want the plan and the report without rendering?
