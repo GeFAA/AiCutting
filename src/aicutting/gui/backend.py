@@ -5,6 +5,7 @@ from PySide6.QtGui import QDesktopServices
 
 from aicutting.core.progress import CancellationToken, PipelinePhase, ProgressEvent
 from aicutting.gui.jobs import JobFailure, JobRequest
+from aicutting.gui.live_view import live_view
 from aicutting.gui.state import GuiSelection, validate_selection
 from aicutting.gui.worker import CutWorker
 from aicutting.pipeline import PipelineResult
@@ -42,6 +43,7 @@ class Backend(QObject):
     gradeChanged = Signal()
     resultChanged = Signal()
     chosenFolderChanged = Signal()
+    liveViewChanged = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -50,6 +52,14 @@ class Backend(QObject):
         self._stage = -1
         self._message = ""
         self._busy = False
+        self._step = 0
+        self._total = 0
+        self._hero = ""
+        self._thumbs: list[str] = []
+        self._detail = ""
+        self._output_dir = Path()
+        self._advanced_output = ""
+        self._dry_run = False
         self._grade = ""
         self._grade_overall = 0.0
         self._dims = {"on_beat": 0.0, "variety": 0.0, "pacing": 0.0}
@@ -83,6 +93,31 @@ class Backend(QObject):
         return self._message
 
     liveMessage = Property(str, _get_message, notify=liveMessageChanged)
+
+    def _get_step(self) -> int:
+        return self._step
+
+    stepCurrent = Property(int, _get_step, notify=liveViewChanged)
+
+    def _get_total(self) -> int:
+        return self._total
+
+    stepTotal = Property(int, _get_total, notify=liveViewChanged)
+
+    def _get_hero(self) -> str:
+        return self._hero
+
+    heroImage = Property(str, _get_hero, notify=liveViewChanged)
+
+    def _get_detail(self) -> str:
+        return self._detail
+
+    liveDetail = Property(str, _get_detail, notify=liveViewChanged)
+
+    def _get_thumbs(self) -> list[str]:
+        return self._thumbs
+
+    liveThumbnails = Property("QVariantList", _get_thumbs, notify=liveViewChanged)
 
     def _get_busy(self) -> bool:
         return self._busy
@@ -161,14 +196,30 @@ class Backend(QObject):
         self.chosenFolderChanged.emit()
         self._set_status("idle")
 
+    @Slot(str)
+    def setOutput(self, path: str) -> None:
+        self._advanced_output = path
+
+    @Slot(bool)
+    def setDryRun(self, dry_run: bool) -> None:
+        self._dry_run = dry_run
+
+    @Slot(str, result=str)
+    def defaultOutput(self, folder: str) -> str:
+        return str(Path(folder) / "aicutting-out") if folder else ""
+
     @Slot(str, str, str, str, bool)
     def startCut(self, folder: str, music: str, style: str, aspect: str, variants: bool) -> None:
         if self._busy:
             return
+        self._output_dir = Path(self._advanced_output) if self._advanced_output else (
+            Path(folder) / "aicutting-out"
+        )
         request = JobRequest(
             input_dir=Path(folder),
             music_path=Path(music) if music else None,
-            output_dir=Path(folder) / "aicutting-out",
+            output_dir=self._output_dir,
+            dry_run=self._dry_run,
             style=style or "cinematic",
             aspect=aspect or "16:9",
             variants=variants,
@@ -221,6 +272,15 @@ class Backend(QObject):
         self.stageIndexChanged.emit()
         self._message = event.message or event.phase.value
         self.liveMessageChanged.emit()
+        # Surface what the pipeline is doing right now: the determinate step and the artifacts it
+        # has written so far (location frame, contact-sheet thumbnails, chosen clips).
+        self._step = event.step or 0
+        self._total = event.total or 0
+        view = live_view(event.phase, self._output_dir)
+        self._hero = view.hero
+        self._thumbs = view.thumbnails
+        self._detail = view.detail
+        self.liveViewChanged.emit()
 
     def _on_succeeded(self, result: PipelineResult) -> None:
         self._grade = result.grade or ""

@@ -65,6 +65,19 @@ def test_backend_maps_progress_to_a_stage(qtbot) -> None:  # type: ignore[no-unt
     assert backend.liveMessage == "rating 12"
 
 
+def test_backend_surfaces_live_view_and_step_on_progress(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    sheets = tmp_path / "contact-sheets"
+    sheets.mkdir()
+    (sheets / "0.jpg").write_bytes(b"x")
+    backend = Backend()
+    backend._output_dir = tmp_path
+    with qtbot.waitSignal(backend.liveViewChanged):
+        backend._on_progress(ProgressEvent(PipelinePhase.RATING_FOOTAGE, step=3, total=10))
+    assert backend.stepCurrent == 3
+    assert backend.stepTotal == 10
+    assert len(backend.liveThumbnails) == 1
+
+
 def test_backend_fills_grade_fields_on_success(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
     backend = Backend()
     result = PipelineResult(
