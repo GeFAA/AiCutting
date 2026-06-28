@@ -76,6 +76,7 @@ packages = ["aicutting"]
 [[tool.mypy.overrides]]
 module = [
   "aicutting.gui.app",
+  "aicutting.gui.backend",
   "aicutting.gui.main_window",
   "aicutting.gui.qt",
   "aicutting.gui.widgets",
