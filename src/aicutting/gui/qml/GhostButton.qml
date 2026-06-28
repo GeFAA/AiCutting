@@ -1,9 +1,11 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import "."
 
 Rectangle {
     id: root
     property string text: ""
+    property string tip: ""
     signal clicked
     implicitWidth: label.width + 36
     implicitHeight: 44
@@ -13,6 +15,9 @@ Rectangle {
     border.color: ma.containsMouse ? Theme.borderFocus : Theme.hairline
     Behavior on color { ColorAnimation { duration: Theme.tMicro } }
     Behavior on border.color { ColorAnimation { duration: Theme.tMicro } }
+    ToolTip.text: root.tip
+    ToolTip.delay: 500
+    ToolTip.visible: root.tip !== "" && ma.containsMouse
 
     Text {
         id: label

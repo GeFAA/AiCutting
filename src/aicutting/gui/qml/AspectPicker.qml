@@ -1,12 +1,17 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import "."
 
 Row {
     id: root
     property string value: "16:9"
     spacing: 10
-    // [label, glyph width, glyph height]
-    readonly property var ratios: [["16:9", 44, 25], ["9:16", 25, 44], ["1:1", 34, 34]]
+    // [label, glyph width, glyph height, tooltip]
+    readonly property var ratios: [
+        ["16:9", 44, 25, "Landscape master — the classic 16:9"],
+        ["9:16", 25, 44, "Vertical reel — Reels / TikTok / Shorts"],
+        ["1:1", 34, 34, "Square — feed posts"]
+    ]
 
     Repeater {
         model: root.ratios
@@ -18,13 +23,19 @@ Row {
                 border.width: 1
                 border.color: root.value === modelData[0] ? Theme.accent : Theme.hairline
                 Behavior on border.color { ColorAnimation { duration: Theme.tMicro } }
+                ToolTip.text: modelData[3]
+                ToolTip.delay: 500
+                ToolTip.visible: ma.containsMouse
                 Rectangle {
                     anchors.centerIn: parent
                     width: modelData[1]; height: modelData[2]; radius: 3
                     color: "transparent"; border.width: 2
                     border.color: root.value === modelData[0] ? Theme.accent : Theme.textMid
                 }
-                MouseArea { anchors.fill: parent; onClicked: root.value = modelData[0] }
+                MouseArea {
+                    id: ma; anchors.fill: parent; hoverEnabled: true
+                    onClicked: root.value = modelData[0]
+                }
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter; text: modelData[0]

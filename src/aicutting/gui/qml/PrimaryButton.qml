@@ -1,9 +1,11 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import "."
 
 Rectangle {
     id: root
     property string text: ""
+    property string tip: ""
     signal clicked
     implicitWidth: label.width + 56
     implicitHeight: 52
@@ -12,6 +14,9 @@ Rectangle {
     scale: ma.pressed ? 0.98 : 1.0
     Behavior on scale { NumberAnimation { duration: Theme.tMicro; easing.type: Easing.OutExpo } }
     Behavior on color { ColorAnimation { duration: Theme.tMicro } }
+    ToolTip.text: root.tip
+    ToolTip.delay: 500
+    ToolTip.visible: root.tip !== "" && ma.containsMouse
 
     Rectangle {  // amber glow
         anchors.centerIn: parent

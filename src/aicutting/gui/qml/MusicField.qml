@@ -38,7 +38,8 @@ Rectangle {
     GhostButton {
         anchors.right: parent.right; anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
-        text: "Choose…"; onClicked: root.browseRequested()
+        text: "Choose…"; tip: "Pick a song (optional)"
+        onClicked: root.browseRequested()
     }
     DropArea {
         id: da; anchors.fill: parent

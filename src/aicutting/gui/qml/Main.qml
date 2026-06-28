@@ -98,7 +98,10 @@ Window {
                             text: "MASTERS"; font.family: Theme.fontDisplay; font.pixelSize: 11
                             font.letterSpacing: 2; color: Theme.textLow
                         }
-                        VariantsToggle { id: variants; height: 56 }
+                        VariantsToggle {
+                            id: variants; height: 56
+                            tip: "Also render a 15s teaser and a 60s short master"
+                        }
                     }
                 }
                 GhostButton {
@@ -109,7 +112,10 @@ Window {
                     visible: win.advanced; spacing: Theme.s2; width: parent.width
                     Row {
                         spacing: Theme.s2
-                        GhostButton { text: "Output folder…"; onClicked: outputDialog.open() }
+                        GhostButton {
+                            text: "Output folder…"; tip: "Where the cut and report are written"
+                            onClicked: outputDialog.open()
+                        }
                         Text {
                             id: outputPath
                             anchors.verticalCenter: parent.verticalCenter
@@ -120,6 +126,7 @@ Window {
                     }
                     VariantsToggle {
                         label: "Plan & report only — no render"
+                        tip: "Create the cut plan and report without rendering the video"
                         onCheckedChanged: backend.setDryRun(checked)
                     }
                 }
@@ -127,10 +134,14 @@ Window {
                     spacing: Theme.s2
                     PrimaryButton {
                         text: "DIRECT THE CUT"
+                        tip: "Analyse, edit and render the cut"
                         onClicked: backend.startCut(backend.chosenFolder, music.path,
                                                     style.value, aspect.value, variants.checked)
                     }
-                    GhostButton { text: "Change folder"; onClicked: backend.reset() }
+                    GhostButton {
+                        text: "Change folder"; tip: "Pick a different footage folder"
+                        onClicked: backend.reset()
+                    }
                 }
             }
         }
@@ -154,7 +165,7 @@ Window {
                 }
                 GhostButton {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: "Cancel"; onClicked: backend.cancel()
+                    text: "Cancel"; tip: "Stop the current run"; onClicked: backend.cancel()
                 }
             }
         }

@@ -45,6 +45,9 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
 - 🎓 **Grades its own edit.** A built-in self-critic scores the finished cut — on-beat accuracy,
   shot variety, pacing — shows the grade and breakdown in the report, and **re-plans a weak cut**
   against the deterministic fallback, keeping whichever grades higher.
+- 🖥️ **A desktop app, not just a CLI.** AiCutting Studio (Qt Quick / QML) — drop a folder or browse
+  to it, pick a vibe, and **watch the AI work live**: the frames it's looking at, the shots it's
+  rating, the grade it lands. `aicutting-studio`.
 - 🔒 **100% local.** Vision agent (Codex / Claude Code) + FFmpeg. Your footage never leaves the
   machine. No agent? A deterministic fallback still produces a full, beat-synced edit.
 - 🎞️ **Hands off to your NLE.** Exports a rendered MP4 *and* DaVinci Resolve / FCPXML / EDL

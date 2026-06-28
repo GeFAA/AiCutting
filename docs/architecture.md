@@ -73,13 +73,21 @@ a full-length, beat-synced edit from safe-zone candidates.
 AiCutting Studio is a native PySide6 **Qt Quick / QML** frontend over the same pipeline. The QML
 View (`gui/qml/`) binds to a `Backend(QObject)` (`gui/backend.py`) that owns the existing
 `CutWorker` on a `QThread`, maps the pipeline phases onto five visible stages, and exposes the run
-state as bindable properties. The flow is drop-a-folder → pick style / aspect / variants → a
-five-stage cinematic tracker → a result screen with the self-critic grade dial and an in-app
-preview. GUI modules collect local paths, run `CutPipeline` in the worker, stream progress, and
-open the outputs; they do not own edit decisions.
+state as bindable properties. The flow is: choose a footage folder (drag-drop **or** a native
+folder dialog) → pick a song / style / aspect / variants (with an Advanced disclosure for the
+output folder and a dry-run toggle) → a **live working view** → a result screen with the
+self-critic grade dial and the preview + open actions.
+
+The working view is genuinely live: a pure `live_view(phase, output_dir)` resolver
+(`gui/live_view.py`) reads the artifacts the pipeline writes as it runs — the location frame and
+detected place, the contact-sheet thumbnails being rated (with a determinate `done/total` bar and a
+kept/rejected count), then the chosen-clip thumbnails — and the Backend surfaces them so QML shows
+what the AI is doing right now. GUI modules collect local paths, validate the folder
+(`gui/state.py`), run `CutPipeline` in the worker, stream progress, and open the outputs; they do
+not own edit decisions.
 
 Progress is reported with shared `ProgressEvent` values from `aicutting.core.progress`; the CLI
-renders them as a rich live view, the GUI as the five-stage tracker.
+renders them as a rich live view, the GUI as the five-stage tracker plus the live artifact view.
 
 ## Transparency & graceful degradation
 

@@ -33,7 +33,8 @@ Item {
             }
             GhostButton {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Browse folder…"; onClicked: root.browseRequested()
+                text: "Browse folder…"; tip: "Pick a folder of drone clips"
+                onClicked: root.browseRequested()
             }
         }
         // horizontal corner ticks
