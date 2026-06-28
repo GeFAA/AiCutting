@@ -69,6 +69,24 @@ def test_vertical_master_cover_crops_each_clip() -> None:
     assert "scale=1080:1920," not in filter_complex
 
 
+def test_color_matched_clip_gets_a_channel_mixer() -> None:
+    base = _timeline()
+    matched = base.clips[0].model_copy(update={"color_gain": (1.1, 1.0, 0.92)})
+    timeline = base.model_copy(update={"clips": [matched]})
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "colorchannelmixer=rr=1.1:gg=1:bb=0.92" in filter_complex
+
+
+def test_unit_color_gain_adds_no_channel_mixer() -> None:
+    # The default (1.0, 1.0, 1.0) gain is a no-op -> byte-identical to the ungraded-match path.
+    command = build_ffmpeg_command(_timeline(), output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "colorchannelmixer" not in filter_complex
+
+
 def test_build_ffmpeg_command_renders_dissolve_transitions() -> None:
     timeline = Timeline(
         target_duration_s=8.0,

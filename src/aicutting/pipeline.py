@@ -6,6 +6,7 @@ from aicutting.agents.backends import detect_agent_backends
 from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.beat_plan import build_beat_plan
 from aicutting.analysis.color import moment_color_signatures
+from aicutting.analysis.color_match import match_clip_color_gains
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.footage_meta import recording_date_label
@@ -376,11 +377,12 @@ def _finalize_timeline(
     output_dir: Path,
     progress: ProgressCallback | None,
 ) -> CutPlan:
-    # Finish the assembled cut: apply the style's grade (the renderer reads grade_strength), reframe
-    # to the requested social aspect (9:16 / 1:1; 16:9 leaves the source master untouched), then run
-    # the read-only self-critic -- which grades the cut but never alters it, so a low grade is
-    # reported, not silently "fixed".
-    graded = plan.timeline.model_copy(update={"grade_strength": style.grade_strength})
+    # Finish the assembled cut: colour-match the clips toward one consistent look, apply the style's
+    # grade (the renderer reads grade_strength), reframe to the requested social aspect (9:16 / 1:1;
+    # 16:9 leaves the source master untouched), then run the read-only self-critic -- which grades
+    # the cut but never alters it, so a low grade is reported, not silently "fixed".
+    matched = _match_clip_colors(plan.timeline)
+    graded = matched.model_copy(update={"grade_strength": style.grade_strength})
     reframed = reframe_timeline(graded, aspect)
     quality = score_edit(reframed, beat_plan.beats_s)
     write_json_model(output_dir / "edit-quality.json", quality)
@@ -390,6 +392,22 @@ def _finalize_timeline(
         message=f"self-critic: grade {quality.grade} ({quality.overall:.0%})",
     )
     return plan.model_copy(update={"timeline": reframed})
+
+
+def _match_clip_colors(timeline: Timeline) -> Timeline:
+    # Cross-clip colour matching (best-effort): nudge each clip toward one consistent look. Reading
+    # frames can fail on unreadable / fake files, so any failure leaves the timeline untouched.
+    if len(timeline.clips) < 2:
+        return timeline
+    try:
+        gains = match_clip_color_gains(timeline.clips)
+    except Exception:
+        return timeline
+    clips = [
+        clip.model_copy(update={"color_gain": gain})
+        for clip, gain in zip(timeline.clips, gains, strict=False)
+    ]
+    return timeline.model_copy(update={"clips": clips})
 
 
 def _diversify(

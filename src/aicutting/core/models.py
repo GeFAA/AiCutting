@@ -122,6 +122,8 @@ class TimelineClip(BaseModel):
     transition_in: Transition
     speed: float = Field(gt=0)
     color_intent: str
+    # Per-clip RGB gain from cross-clip colour matching; (1.0, 1.0, 1.0) is a no-op.
+    color_gain: tuple[float, float, float] = (1.0, 1.0, 1.0)
 
     @field_validator("source_end_s")
     @classmethod

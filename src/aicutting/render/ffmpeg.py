@@ -19,6 +19,15 @@ _XFADE_KINDS = {
 # `strength` scales it: the eq gains pivot around 1.0 and the colour-balance offsets around 0.0, so
 # strength=1.0 reproduces the shipped grade byte-for-byte and 0.0 is neutral. A style preset can
 # soften (chill/vlog) or strengthen (epic) the look via Timeline.grade_strength.
+def _color_match(clip: TimelineClip) -> str:
+    # Per-clip channel gain from cross-clip colour matching, applied before the shared grade so the
+    # sources are harmonised first. The default (1, 1, 1) gain is a no-op (empty string).
+    red, green, blue = clip.color_gain
+    if (red, green, blue) == (1.0, 1.0, 1.0):
+        return ""
+    return f",colorchannelmixer=rr={red:g}:gg={green:g}:bb={blue:g}"
+
+
 def _color_grade(strength: float) -> str:
     def fmt(value: float) -> str:
         # `+ 0.0` normalises any -0.0 so a neutral grade reads `0`, not `-0`.
@@ -73,9 +82,10 @@ def build_ffmpeg_command(
         # Slow-mo clips (speed < 1) stretch their timestamps so the shorter source fills the slot;
         # speed 1.0 keeps the plain reset so existing behaviour is byte-identical.
         pts = "PTS-STARTPTS" if clip.speed == 1.0 else f"(PTS-STARTPTS)/{clip.speed:g}"
+        colormatch = _color_match(clip)
         video_filters.append(
             f"[{index}:v]setpts={pts},{scale},"
-            f"fps={timeline.fps},format=yuv420p{grade}{animation},settb=AVTB[{label}]"
+            f"fps={timeline.fps},format=yuv420p{colormatch}{grade}{animation},settb=AVTB[{label}]"
         )
         concat_inputs.append(f"[{label}]")
 
