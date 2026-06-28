@@ -30,6 +30,7 @@ from aicutting.planning.duration import choose_target_duration
 from aicutting.planning.rhythm import build_rhythm_grid
 from aicutting.planning.sequence import color_ordered_edit
 from aicutting.render.ffmpeg import render_timeline
+from aicutting.render.reframe import reframe_timeline
 from aicutting.resolve.export import export_resolve_handoff
 
 
@@ -82,6 +83,7 @@ class CutPipeline:
         dry_run: bool,
         progress: ProgressCallback | None = None,
         style: StylePreset = STYLE_PRESETS["cinematic"],
+        aspect: str = "16:9",
     ) -> PipelineResult:
         output_dir.mkdir(parents=True, exist_ok=True)
         emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE)
@@ -110,7 +112,9 @@ class CutPipeline:
             report, location_suggestions=location_suggestions
         )
 
-        plan = _build_director_3_plan(director_outputs.analysis, output_dir, progress, style)
+        plan = _build_director_3_plan(
+            director_outputs.analysis, output_dir, progress, style, aspect
+        )
         title = _compose_title(
             director_outputs.director_report.title, recording_date_label(report.media)
         )
@@ -215,6 +219,7 @@ def _build_director_3_plan(
     output_dir: Path,
     progress: ProgressCallback | None = None,
     style: StylePreset = STYLE_PRESETS["cinematic"],
+    aspect: str = "16:9",
 ) -> CutPlan:
     media = analysis.media
     beat_plan = build_beat_plan(analysis.audio)
@@ -327,9 +332,11 @@ def _build_director_3_plan(
             warnings=[] if plan.timeline.clips else ["No clips could be assembled."],
         ),
     )
-    # Thread the style's grade into the render: the renderer reads Timeline.grade_strength.
+    # Thread the style's grade into the render (the renderer reads Timeline.grade_strength), then
+    # reframe to the requested social aspect (9:16 / 1:1); 16:9 leaves the source master untouched.
     graded = plan.timeline.model_copy(update={"grade_strength": style.grade_strength})
-    return plan.model_copy(update={"timeline": graded})
+    reframed = reframe_timeline(graded, aspect)
+    return plan.model_copy(update={"timeline": reframed})
 
 
 def _diversify(

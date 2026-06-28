@@ -47,6 +47,28 @@ def test_clips_get_a_cinematic_colour_grade() -> None:
     assert "colorbalance=" in filter_complex
 
 
+def test_landscape_master_scales_straight_to_frame_without_cropping() -> None:
+    # The shipped 16:9 master scales straight to the frame -- no cover-crop, byte-identical.
+    command = build_ffmpeg_command(_timeline(), output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "scale=1920:1080," in filter_complex
+    assert "force_original_aspect_ratio" not in filter_complex
+    assert "crop=" not in filter_complex
+
+
+def test_vertical_master_cover_crops_each_clip() -> None:
+    # A 9:16 master covers the frame and centre-crops, so a landscape source fills the vertical
+    # frame with no stretched pixels and no letterbox bars.
+    vertical = _timeline().model_copy(update={"width": 1080, "height": 1920})
+    command = build_ffmpeg_command(vertical, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920" in filter_complex
+    # never the plain stretch-to-frame that would distort a 16:9 source
+    assert "scale=1080:1920," not in filter_complex
+
+
 def test_build_ffmpeg_command_renders_dissolve_transitions() -> None:
     timeline = Timeline(
         target_duration_s=8.0,

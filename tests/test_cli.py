@@ -45,6 +45,39 @@ def test_cut_command_dry_run_reports_artifacts(monkeypatch, tmp_path) -> None:
     assert "Artifacts only" in result.stdout
 
 
+def test_cut_command_forwards_vertical_aspect(monkeypatch, tmp_path) -> None:
+    from aicutting.pipeline import PipelineResult
+
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    (input_dir / "clip.mp4").write_text("", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    class FakePipeline:
+        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None, **kwargs):
+            del input_dir, music_path, dry_run, progress
+            captured.update(kwargs)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            return PipelineResult(
+                analysis=output_dir / "analysis.json",
+                cut_plan=output_dir / "cut-plan.json",
+                timeline=output_dir / "timeline.json",
+                final_video=output_dir / "final.mp4",
+                output_dir=output_dir,
+            )
+
+    monkeypatch.setattr("aicutting.pipeline.CutPipeline", FakePipeline)
+
+    result = CliRunner().invoke(
+        app,
+        ["cut", str(input_dir), "--out", str(output_dir), "--aspect", "9:16", "--dry-run"],
+    )
+
+    assert result.exit_code == 0
+    assert captured.get("aspect") == "9:16"
+
+
 def test_cut_command_reports_pipeline_errors(monkeypatch, tmp_path) -> None:
     from aicutting.core.errors import ExternalToolError
 

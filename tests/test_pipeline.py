@@ -354,6 +354,67 @@ def test_pipeline_writes_drone_director_3_artifacts_with_fallback(
     assert len(plan["timeline"]["clips"]) >= 1
 
 
+def _vertical_report(video: Path) -> AnalysisReport:
+    return AnalysisReport(
+        media=[MediaAsset(path=video, duration_s=60, width=3840, height=2160, fps=25)],
+        candidates=[
+            ClipCandidate(
+                asset_path=video, start_s=20, end_s=25, quality_score=0.9, motion_score=0.7,
+                diversity_key="c0", shot_type=DroneShotType.REVEAL, drone_director_score=0.9,
+            ),
+            ClipCandidate(
+                asset_path=video, start_s=30, end_s=35, quality_score=0.85, motion_score=0.6,
+                diversity_key="c1", shot_type=DroneShotType.APPROACH, drone_director_score=0.85,
+            ),
+        ],
+        audio=AudioAnalysis(
+            path=None, duration_s=12.0, beats_s=[0, 1, 2, 3, 4, 5, 6, 7, 8], energy=[0.2, 0.9]
+        ),
+    )
+
+
+def test_pipeline_keeps_the_source_master_by_default(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: _vertical_report(video),
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=True)
+
+    timeline = json.loads((output_dir / "timeline.json").read_text(encoding="utf-8"))
+    assert (timeline["width"], timeline["height"]) == (3840, 2160)
+
+
+def test_pipeline_reframes_to_a_vertical_master_for_9_16(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: _vertical_report(video),
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=True, aspect="9:16")
+
+    timeline = json.loads((output_dir / "timeline.json").read_text(encoding="utf-8"))
+    assert (timeline["width"], timeline["height"]) == (1080, 1920)
+
+
 def test_compose_title_combines_place_and_date() -> None:
     location = LocationTitle(title="Iceland", subtitle="Iceland", confidence=0.7)
     title = _compose_title(location, "June 2025")

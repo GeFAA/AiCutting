@@ -32,6 +32,9 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
   cuts on the drops.
 - 🎚️ **Pick a vibe.** `--style` presets — cinematic, epic, chill, or vlog — retune the whole edit
   (pacing, slow-mo, transitions, grade) from one flag.
+- 📱 **Vertical & square masters.** `--aspect 9:16` reframes the whole edit into a full-bleed
+  Reels / TikTok / Shorts master (or `1:1` for the feed) — cover-cropped to fill the frame, never
+  stretched, no letterbox bars.
 - 📊 **Shows its work.** A self-contained `report.html` with a thumbnail of every chosen clip and
   *why* it was kept, plus a live terminal view of each stage as it runs.
 - 🔒 **100% local.** Vision agent (Codex / Claude Code) + FFmpeg. Your footage never leaves the
@@ -70,6 +73,12 @@ Pick a vibe with `--style` — **cinematic** (default), **epic**, **chill**, or 
 
 ```powershell
 aicutting cut .\input-videos --music .\track.mp3 --out .\output --style epic
+```
+
+Render a vertical master for Reels / TikTok / Shorts (or `1:1` for a square feed post):
+
+```powershell
+aicutting cut .\input-videos --music .\track.mp3 --out .\output --aspect 9:16
 ```
 
 Just want the plan and the report without rendering?

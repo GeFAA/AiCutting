@@ -9,6 +9,7 @@ from aicutting import __version__
 from aicutting.core.errors import AiCuttingError
 from aicutting.core.paths import resolve_cut_inputs
 from aicutting.core.style import STYLE_PRESETS, resolve_style
+from aicutting.render.reframe import resolve_aspect
 
 app = typer.Typer(help="AiCutting: local cinematic drone video cutting.")
 
@@ -69,6 +70,14 @@ def cut(
             help="Edit style preset: cinematic (default), epic, chill, or vlog.",
         ),
     ] = "cinematic",
+    aspect: Annotated[
+        str,
+        typer.Option(
+            "--aspect",
+            "-a",
+            help="Output aspect: 16:9 (default), 9:16 (vertical reel), or 1:1 (square).",
+        ),
+    ] = "16:9",
 ) -> None:
     """Run the automatic cinematic cut pipeline."""
     try:
@@ -78,14 +87,15 @@ def cut(
         raise typer.Exit(code=2) from exc
 
     style_preset = resolve_style(style)
+    resolved_aspect = resolve_aspect(aspect)
 
     from aicutting.pipeline import CutPipeline
     from aicutting.tui import RunReporter
 
     try:
         with RunReporter() as reporter:
-            # The pipeline already defaults to cinematic, so only forward the preset when the user
-            # picked another one -- keeping the call shape backward compatible.
+            # The pipeline already defaults to cinematic / 16:9, so only forward a preset or aspect
+            # when the user picked another one -- keeping the call shape backward compatible.
             cut_kwargs: dict[str, Any] = {
                 "input_dir": inputs.input_dir,
                 "music_path": inputs.music_path,
@@ -95,6 +105,8 @@ def cut(
             }
             if style_preset is not STYLE_PRESETS["cinematic"]:
                 cut_kwargs["style"] = style_preset
+            if resolved_aspect != "16:9":
+                cut_kwargs["aspect"] = resolved_aspect
             result = CutPipeline().cut(**cut_kwargs)
     except AiCuttingError as exc:
         typer.echo(str(exc))

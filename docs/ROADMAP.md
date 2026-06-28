@@ -22,6 +22,18 @@ always.
 
 ---
 
+## Shipped in 4.0 so far
+
+- ✅ **Cinematic colour grade** — a graded look on every clip, tunable per style.
+- ✅ **Motion-aware selection** — shaky / searching moments are dropped before the agent sees them.
+- ✅ **Phrase-aware cutting** — cuts snap to downbeats and never run across a phrase boundary.
+- ✅ **Speed ramps / slow-mo** — calm establishing shots drift in slow motion, still beat-exact.
+- ✅ **Style presets** — `--style` cinematic · epic · chill · vlog retunes the whole edit.
+- ✅ **Vertical & square masters** — `--aspect 9:16` / `1:1` reframes the cut into a full-bleed,
+  cover-cropped social master (no bars, no stretch). *Subject-aware tracking is the next step.*
+
+---
+
 ## 4.0 pillars
 
 ### 1 · It watches motion, not just frames
