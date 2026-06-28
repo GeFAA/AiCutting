@@ -1,6 +1,5 @@
 def choose_target_duration(total_usable_s: float) -> float:
-    if total_usable_s <= 45.0:
-        return round(max(15.0, total_usable_s), 3)
-    if total_usable_s <= 240.0:
-        return 75.0
-    return 180.0
+    # Match the song so the whole track plays and the cut showcases more of the footage, rather than
+    # a fixed highlight length. Clamp so a tiny clip still makes a short cut and an unusually long
+    # track stays a sane length (and render).
+    return round(min(max(total_usable_s, 15.0), 300.0), 3)
