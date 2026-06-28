@@ -64,17 +64,22 @@ a full-length, beat-synced edit from safe-zone candidates.
 - `resolve`: FCPXML, EDL, and media-manifest export.
 - `agents`: local Codex / Claude Code detection.
 - `tui`: the live terminal progress view.
-- `gui`: the PySide6 desktop frontend over the same pipeline.
+- `gui`: the PySide6 Qt Quick / QML desktop frontend (`gui/qml/`) over the same pipeline, bridged
+  by `gui/backend.py`.
 - `pipeline` / `cli`: orchestration and the command-line entry point.
 
 ## Desktop GUI
 
-AiCutting Studio is a native PySide6 frontend over the same pipeline. GUI modules collect local
-paths, validate readiness, run `CutPipeline` in a background worker, stream progress, and open the
-outputs. They do not own edit decisions.
+AiCutting Studio is a native PySide6 **Qt Quick / QML** frontend over the same pipeline. The QML
+View (`gui/qml/`) binds to a `Backend(QObject)` (`gui/backend.py`) that owns the existing
+`CutWorker` on a `QThread`, maps the pipeline phases onto five visible stages, and exposes the run
+state as bindable properties. The flow is drop-a-folder → pick style / aspect / variants → a
+five-stage cinematic tracker → a result screen with the self-critic grade dial and an in-app
+preview. GUI modules collect local paths, run `CutPipeline` in the worker, stream progress, and
+open the outputs; they do not own edit decisions.
 
 Progress is reported with shared `ProgressEvent` values from `aicutting.core.progress`; the CLI
-renders them as a rich live view, the GUI as user-facing phases.
+renders them as a rich live view, the GUI as the five-stage tracker.
 
 ## Transparency & graceful degradation
 
