@@ -124,6 +124,8 @@ class TimelineClip(BaseModel):
     color_intent: str
     # Per-clip RGB gain from cross-clip colour matching; (1.0, 1.0, 1.0) is a no-op.
     color_gain: tuple[float, float, float] = (1.0, 1.0, 1.0)
+    # Horizon-levelling rotation in degrees applied before the frame scale; 0.0 is a no-op.
+    level_deg: float = 0.0
 
     @field_validator("source_end_s")
     @classmethod

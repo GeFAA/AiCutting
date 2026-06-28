@@ -1,3 +1,4 @@
+import math
 import subprocess
 from pathlib import Path
 
@@ -38,6 +39,17 @@ def _color_grade(strength: float) -> str:
         f",colorbalance=rs={fmt(-0.02 * strength)}:bs={fmt(0.03 * strength)}"
         f":rh={fmt(0.03 * strength)}:bh={fmt(-0.02 * strength)}"
     )
+
+
+def _horizon_level(clip: TimelineClip) -> str:
+    # Rotate the source to level a tilted horizon, then centre-crop just enough to hide the black
+    # corners the rotation exposes. The minimal same-aspect overscan for a source of aspect iw/ih
+    # rotated by |a| is (iw/ih)*sin|a| + cos|a|. Applied in source space, before the frame scale.
+    if clip.level_deg == 0.0:
+        return ""
+    radians = math.radians(clip.level_deg)
+    zoom = f"(iw/ih*{abs(math.sin(radians)):.5f}+{math.cos(radians):.5f})"
+    return f"rotate={radians:.5f}:ow=iw:oh=ih,crop=iw/{zoom}:ih/{zoom},"
 
 
 def _scale_clause(timeline: Timeline) -> str:
@@ -82,9 +94,10 @@ def build_ffmpeg_command(
         # Slow-mo clips (speed < 1) stretch their timestamps so the shorter source fills the slot;
         # speed 1.0 keeps the plain reset so existing behaviour is byte-identical.
         pts = "PTS-STARTPTS" if clip.speed == 1.0 else f"(PTS-STARTPTS)/{clip.speed:g}"
+        level = _horizon_level(clip)
         colormatch = _color_match(clip)
         video_filters.append(
-            f"[{index}:v]setpts={pts},{scale},"
+            f"[{index}:v]setpts={pts},{level}{scale},"
             f"fps={timeline.fps},format=yuv420p{colormatch}{grade}{animation},settb=AVTB[{label}]"
         )
         concat_inputs.append(f"[{label}]")

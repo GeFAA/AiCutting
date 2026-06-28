@@ -10,6 +10,7 @@ from aicutting.analysis.color_match import match_clip_color_gains
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.footage_meta import recording_date_label
+from aicutting.analysis.horizon import clip_level_degrees
 from aicutting.analysis.motion import score_moment_motion, select_usable_moments
 from aicutting.analysis.screenshots import (
     build_contact_sheets,
@@ -377,11 +378,13 @@ def _finalize_timeline(
     output_dir: Path,
     progress: ProgressCallback | None,
 ) -> CutPlan:
-    # Finish the assembled cut: colour-match the clips toward one consistent look, apply the style's
-    # grade (the renderer reads grade_strength), reframe to the requested social aspect (9:16 / 1:1;
-    # 16:9 leaves the source master untouched), then run the read-only self-critic -- which grades
-    # the cut but never alters it, so a low grade is reported, not silently "fixed".
-    matched = _match_clip_colors(plan.timeline)
+    # Finish the assembled cut: level tilted horizons, colour-match the clips toward one consistent
+    # look, apply the style's grade (the renderer reads grade_strength), reframe to the requested
+    # social aspect (9:16 / 1:1; 16:9 leaves the source master untouched), then run the read-only
+    # self-critic -- which grades the cut but never alters it, so a low grade is reported, not
+    # silently "fixed".
+    levelled = _level_horizons(plan.timeline)
+    matched = _match_clip_colors(levelled)
     graded = matched.model_copy(update={"grade_strength": style.grade_strength})
     reframed = reframe_timeline(graded, aspect)
     quality = score_edit(reframed, beat_plan.beats_s)
@@ -392,6 +395,24 @@ def _finalize_timeline(
         message=f"self-critic: grade {quality.grade} ({quality.overall:.0%})",
     )
     return plan.model_copy(update={"timeline": reframed})
+
+
+def _level_horizons(timeline: Timeline) -> Timeline:
+    # Horizon levelling (best-effort): rotate clips with a clearly tilted horizon back to level.
+    # Reading frames can fail on unreadable / fake files, so any failure leaves the timeline as-is.
+    if not timeline.clips:
+        return timeline
+    try:
+        degrees = clip_level_degrees(timeline.clips)
+    except Exception:
+        return timeline
+    if not any(degrees):
+        return timeline
+    clips = [
+        clip.model_copy(update={"level_deg": deg})
+        for clip, deg in zip(timeline.clips, degrees, strict=False)
+    ]
+    return timeline.model_copy(update={"clips": clips})
 
 
 def _match_clip_colors(timeline: Timeline) -> Timeline:

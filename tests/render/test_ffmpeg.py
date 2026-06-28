@@ -87,6 +87,25 @@ def test_unit_color_gain_adds_no_channel_mixer() -> None:
     assert "colorchannelmixer" not in filter_complex
 
 
+def test_levelled_clip_rotates_in_source_space_with_overscan() -> None:
+    base = _timeline()
+    tilted = base.clips[0].model_copy(update={"level_deg": -3.0})
+    timeline = base.model_copy(update={"clips": [tilted]})
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "rotate=" in filter_complex
+    assert "crop=iw/" in filter_complex  # the same-aspect overscan crop that hides the corners
+    # the rotation happens in source space, before the frame scale
+    assert filter_complex.index("rotate=") < filter_complex.index("scale=1920:1080")
+
+
+def test_zero_level_adds_no_rotation() -> None:
+    command = build_ffmpeg_command(_timeline(), output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+    assert "rotate=" not in filter_complex
+
+
 def test_build_ffmpeg_command_renders_dissolve_transitions() -> None:
     timeline = Timeline(
         target_duration_s=8.0,
