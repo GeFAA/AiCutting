@@ -5,6 +5,7 @@ from typing import Protocol
 
 from aicutting.core.errors import AiCuttingError
 from aicutting.core.progress import ProgressCallback
+from aicutting.core.style import STYLE_PRESETS, StylePreset, resolve_style
 from aicutting.pipeline import CutPipeline, PipelineResult
 
 
@@ -14,6 +15,9 @@ class JobRequest:
     music_path: Path | None
     output_dir: Path
     dry_run: bool = False
+    style: str = "cinematic"
+    aspect: str = "16:9"
+    variants: bool = False
 
 
 @dataclass(frozen=True)
@@ -38,6 +42,9 @@ class CutJobPipeline(Protocol):
         output_dir: Path,
         dry_run: bool,
         progress: ProgressCallback | None = None,
+        style: StylePreset = STYLE_PRESETS["cinematic"],
+        aspect: str = "16:9",
+        variants: bool = False,
     ) -> PipelineResult: ...
 
 
@@ -56,6 +63,9 @@ def run_cut_job(
             output_dir=request.output_dir,
             dry_run=request.dry_run,
             progress=progress,
+            style=resolve_style(request.style),
+            aspect=request.aspect,
+            variants=request.variants,
         )
     except AiCuttingError as exc:
         return JobFailure(message=str(exc), error_type=type(exc).__name__)
