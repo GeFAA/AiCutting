@@ -309,6 +309,17 @@ def test_held_shots_use_varied_push_anchors() -> None:
     assert "x='iw-iw/zoom'" in filter_complex  # clip 1 -> a corner
 
 
+def test_hero_clip_gets_a_deeper_pushin() -> None:
+    # The hero shot pushes in further (cap 1.18) than a normal accent zoom (cap 1.12).
+    hero = _timeline().clips[0].model_copy(update={"hero": True})
+    timeline = _timeline().model_copy(update={"clips": [hero]})
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "zoompan" in filter_complex
+    assert "1.18" in filter_complex  # the deeper hero zoom cap
+
+
 def test_short_clip_has_no_pushin() -> None:
     short = _timeline().clips[0].model_copy(update={"source_end_s": 2.5})  # 1.5 s clip
     timeline = _timeline().model_copy(update={"clips": [short]})

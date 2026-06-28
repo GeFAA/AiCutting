@@ -126,6 +126,8 @@ class TimelineClip(BaseModel):
     color_gain: tuple[float, float, float] = (1.0, 1.0, 1.0)
     # Horizon-levelling rotation in degrees applied before the frame scale; 0.0 is a no-op.
     level_deg: float = 0.0
+    # The hero shot on the biggest drop -- gets a pronounced push-in in the renderer.
+    hero: bool = False
 
     @field_validator("source_end_s")
     @classmethod

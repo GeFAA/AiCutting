@@ -30,6 +30,7 @@ from aicutting.director.location import resolve_location_suggestions
 from aicutting.director.models import LocationSuggestion
 from aicutting.planning.assemble import assemble_cut_plan, fallback_edit
 from aicutting.planning.duration import choose_target_duration
+from aicutting.planning.hero import mark_hero
 from aicutting.planning.rhythm import build_rhythm_grid
 from aicutting.planning.sequence import color_ordered_edit
 from aicutting.planning.variants import LENGTH_VARIANTS, opening_variant
@@ -383,7 +384,8 @@ def _finalize_timeline(
     # social aspect (9:16 / 1:1; 16:9 leaves the source master untouched), then run the read-only
     # self-critic -- which grades the cut but never alters it, so a low grade is reported, not
     # silently "fixed".
-    levelled = _level_horizons(plan.timeline)
+    hero = mark_hero(plan.timeline, beat_plan)
+    levelled = _level_horizons(hero)
     matched = _match_clip_colors(levelled)
     graded = matched.model_copy(update={"grade_strength": style.grade_strength})
     reframed = reframe_timeline(graded, aspect)

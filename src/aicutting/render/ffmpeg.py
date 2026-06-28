@@ -222,6 +222,9 @@ def _clip_animation(clip: TimelineClip, timeline: Timeline, index: int) -> str:
     # gentle push-in so it reads as cinematic motion instead of a frozen frame. The anchor cycles
     # so consecutive held shots move toward different corners rather than all pushing dead-centre.
     target = _PUSH_TARGETS[index % len(_PUSH_TARGETS)]
+    if clip.hero:
+        # The hero shot on the drop gets a deeper, faster push-in so it reads as a deliberate beat.
+        return _zoompan(timeline, increment=0.0026, cap=1.18, target=target)
     if clip.transition_in.kind == TransitionType.SMOOTH_ZOOM:
         return _zoompan(timeline, increment=0.0015, cap=1.12, target=target)
     if clip.timeline_duration_s >= 4.0:
