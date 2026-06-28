@@ -34,7 +34,7 @@ from aicutting.planning.hero import mark_hero
 from aicutting.planning.rhythm import build_rhythm_grid
 from aicutting.planning.sequence import color_ordered_edit
 from aicutting.planning.variants import LENGTH_VARIANTS, opening_variant
-from aicutting.quality.critic import score_edit
+from aicutting.quality.critic import replan_if_weak, score_edit
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.render.reframe import reframe_timeline
 from aicutting.resolve.export import export_resolve_handoff
@@ -322,9 +322,11 @@ def _build_director_3_plan(
         if edit is not None
         else None
     )
+    fell_back = False
     if plan is None or len(plan.timeline.clips) < max(1, len(slots) // 2):
         # No agent, or the agent's edit was too sparse/infeasible -> deterministic grid fill,
         # still seeded by the agent's own kept ratings when codex rated the footage.
+        fell_back = True
         if kept:
             edit = fallback_edit(kept, slots)
         else:
@@ -346,6 +348,27 @@ def _build_director_3_plan(
             transition_energy=style.transition_energy,
         )
     assert edit is not None  # always set: the agent edit or the deterministic fill
+    if not fell_back and kept:
+        # Self-critic re-plan: if the agent cut graded weak, assemble the deterministic fallback as
+        # an alternative and keep whichever the critic grades higher (a no-op for a strong cut).
+        primary = plan
+        plan = replan_if_weak(
+            plan,
+            beat_plan.beats_s,
+            lambda: assemble_cut_plan(
+                fallback_edit(kept, slots),
+                slots,
+                moment_index,
+                media,
+                slow_mo_speed=style.slow_mo_speed,
+                slow_mo_energy=style.slow_mo_energy,
+                transition_energy=style.transition_energy,
+            ),
+        )
+        if plan is not primary:
+            emit_progress(
+                progress, PipelinePhase.ASSEMBLING_CUT, message="self-critic re-planned a weak cut"
+            )
     transitions = sum(
         1 for clip in plan.timeline.clips if clip.transition_in.kind.value != "hard_cut"
     )

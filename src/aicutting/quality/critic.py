@@ -1,8 +1,9 @@
 import statistics
+from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
-from aicutting.core.models import Timeline, TimelineClip
+from aicutting.core.models import CutPlan, Timeline, TimelineClip
 
 # How far a cut may sit from a beat before it stops counting as "on the beat". 0.12 s is ~3 frames
 # at 25 fps -- our cuts are laid on absolute beat times, so an honest edit scores ~1.0 here.
@@ -13,6 +14,9 @@ _PACING_TARGET_CV = 0.3
 
 # Weights for the overall score. On-beat is the core promise of the tool, so it carries the most.
 _WEIGHTS = {"on_beat": 0.5, "variety": 0.3, "pacing": 0.2}
+
+# Below this grade a cut is weak enough to be worth re-planning (0.7 == a C; A/B cuts ship as-is).
+REPLAN_THRESHOLD = 0.7
 
 
 class DimensionScore(BaseModel):
@@ -47,6 +51,27 @@ def score_edit(timeline: Timeline, beats_s: list[float]) -> EditQuality:
     total_weight = sum(_WEIGHTS[d.name] for d in dimensions)
     overall = round(weighted / total_weight, 4) if total_weight else 0.0
     return EditQuality(overall=overall, grade=_grade(overall), dimensions=dimensions)
+
+
+def better_graded_plan(primary: CutPlan, alternative: CutPlan, beats_s: list[float]) -> CutPlan:
+    """Return whichever cut the self-critic grades higher (the primary wins a tie)."""
+    primary_score = score_edit(primary.timeline, beats_s).overall
+    alternative_score = score_edit(alternative.timeline, beats_s).overall
+    return alternative if alternative_score > primary_score else primary
+
+
+def replan_if_weak(
+    primary: CutPlan,
+    beats_s: list[float],
+    build_alternative: Callable[[], CutPlan],
+    threshold: float = REPLAN_THRESHOLD,
+) -> CutPlan:
+    """Close the re-plan loop: if ``primary`` grades at/above ``threshold`` keep it (the alternative
+    is never built); otherwise assemble the alternative and keep whichever the critic grades higher.
+    """
+    if score_edit(primary.timeline, beats_s).overall >= threshold:
+        return primary
+    return better_graded_plan(primary, build_alternative(), beats_s)
 
 
 def _score_on_beat(clips: list[TimelineClip], beats_s: list[float]) -> DimensionScore | None:
