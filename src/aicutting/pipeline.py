@@ -29,6 +29,7 @@ from aicutting.planning.assemble import assemble_cut_plan, fallback_edit
 from aicutting.planning.duration import choose_target_duration
 from aicutting.planning.rhythm import build_rhythm_grid
 from aicutting.planning.sequence import color_ordered_edit
+from aicutting.planning.variants import LENGTH_VARIANTS, opening_variant
 from aicutting.quality.critic import score_edit
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.render.reframe import reframe_timeline
@@ -85,6 +86,7 @@ class CutPipeline:
         progress: ProgressCallback | None = None,
         style: StylePreset = STYLE_PRESETS["cinematic"],
         aspect: str = "16:9",
+        variants: bool = False,
     ) -> PipelineResult:
         output_dir.mkdir(parents=True, exist_ok=True)
         emit_progress(progress, PipelinePhase.ANALYZING_FOOTAGE)
@@ -144,6 +146,14 @@ class CutPipeline:
         if not dry_run:
             emit_progress(progress, PipelinePhase.RENDERING_FINAL_VIDEO)
             self.dependencies.render(plan.timeline, final_video, report.audio.path)
+            if variants:
+                _render_length_variants(
+                    self.dependencies.render,
+                    plan.timeline,
+                    report.audio.path,
+                    output_dir,
+                    progress,
+                )
 
         emit_progress(
             progress,
@@ -157,6 +167,27 @@ class CutPipeline:
             final_video=final_video,
             output_dir=output_dir,
         )
+
+
+def _render_length_variants(
+    render: Callable[[Timeline, Path, Path | None], None],
+    timeline: Timeline,
+    music_path: Path | None,
+    output_dir: Path,
+    progress: ProgressCallback | None,
+) -> None:
+    # Render the social length masters (teaser / short) beside the full cut. Each is the opening of
+    # the full edit, so it keeps the title reveal and stays beat-synced with the music from the top.
+    for variant in LENGTH_VARIANTS:
+        cut = opening_variant(timeline, variant.seconds)
+        if cut is None:
+            continue
+        emit_progress(
+            progress,
+            PipelinePhase.RENDERING_FINAL_VIDEO,
+            message=f"{variant.name} master ({variant.seconds:.0f}s)",
+        )
+        render(cut, output_dir / f"final-{variant.name}.mp4", music_path)
 
 
 def _compose_title(location: LocationTitle | None, date_label: str | None) -> LocationTitle | None:

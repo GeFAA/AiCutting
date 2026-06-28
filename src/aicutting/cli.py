@@ -78,6 +78,13 @@ def cut(
             help="Output aspect: 16:9 (default), 9:16 (vertical reel), or 1:1 (square).",
         ),
     ] = "16:9",
+    variants: Annotated[
+        bool,
+        typer.Option(
+            "--variants",
+            help="Also render a 15s teaser and a 60s short master beside the full cut.",
+        ),
+    ] = False,
 ) -> None:
     """Run the automatic cinematic cut pipeline."""
     try:
@@ -107,6 +114,8 @@ def cut(
                 cut_kwargs["style"] = style_preset
             if resolved_aspect != "16:9":
                 cut_kwargs["aspect"] = resolved_aspect
+            if variants:
+                cut_kwargs["variants"] = True
             result = CutPipeline().cut(**cut_kwargs)
     except AiCuttingError as exc:
         typer.echo(str(exc))
@@ -127,6 +136,10 @@ def _print_summary(output_dir: Path, final_video: Path, dry_run: bool) -> None:
         lines.append("[dim]Artifacts only (dry run). Run without --dry-run to render the video.[/]")
     else:
         lines.append(f"[bold]Video[/]    {final_video}")
+        for variant in ("teaser", "short"):
+            variant_path = output_dir / f"final-{variant}.mp4"
+            if variant_path.exists():
+                lines.append(f"[bold]{variant.capitalize():8}[/] {variant_path}")
     Console().print(Panel("\n".join(lines), title="Done", border_style="green", expand=False))
 
 

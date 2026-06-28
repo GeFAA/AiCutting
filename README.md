@@ -35,6 +35,8 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
 - 📱 **Vertical & square masters.** `--aspect 9:16` reframes the whole edit into a full-bleed
   Reels / TikTok / Shorts master (or `1:1` for the feed) — cover-cropped to fill the frame, never
   stretched, no letterbox bars.
+- ⏱️ **One run, every length.** `--variants` also renders a 15-second teaser and a 60-second short
+  beside the full edit — each the titled, beat-synced opening hook, ready to post.
 - 📊 **Shows its work.** A self-contained `report.html` with a thumbnail of every chosen clip and
   *why* it was kept, plus a live terminal view of each stage as it runs.
 - 🎓 **Grades its own edit.** A built-in self-critic scores the finished cut — on-beat accuracy,
@@ -82,6 +84,12 @@ Render a vertical master for Reels / TikTok / Shorts (or `1:1` for a square feed
 
 ```powershell
 aicutting cut .\input-videos --music .\track.mp3 --out .\output --aspect 9:16
+```
+
+Render social length masters (a 15s teaser + a 60s short) beside the full cut:
+
+```powershell
+aicutting cut .\input-videos --music .\track.mp3 --out .\output --variants
 ```
 
 Just want the plan and the report without rendering?

@@ -33,6 +33,8 @@ always.
   cover-cropped social master (no bars, no stretch). *Subject-aware tracking is the next step.*
 - ✅ **Self-critic** — the director grades its own finished cut (on-beat, variety, pacing) and
   surfaces the score in `report.html`. *Auto-fixing the weak parts is the next step.*
+- ✅ **Length masters** — `--variants` renders a 15s teaser and a 60s short beside the full cut
+  (the titled, beat-synced opening). *AI-picked mid-song highlight windows are the next step.*
 
 ---
 

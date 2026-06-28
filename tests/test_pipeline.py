@@ -406,6 +406,59 @@ def test_pipeline_writes_self_critic_quality(
     assert any(dimension["name"] == "on_beat" for dimension in quality["dimensions"])
 
 
+def test_pipeline_renders_length_variants_when_requested(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
+    rendered: list[tuple[str, float]] = []
+
+    def _record_render(timeline: object, output_path: Path, music_path: object) -> None:
+        del music_path
+        rendered.append((output_path.name, timeline.target_duration_s))  # type: ignore[attr-defined]
+
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: _vertical_report(video),  # ~40 s cut
+        render=_record_render,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=False, variants=True)
+
+    names = {name for name, _ in rendered}
+    assert "final.mp4" in names
+    # the ~40 s cut yields a 15 s teaser but no 60 s short (the cut is shorter than 60 s)
+    assert "final-teaser.mp4" in names
+    assert "final-short.mp4" not in names
+    teaser_duration = next(dur for name, dur in rendered if name == "final-teaser.mp4")
+    assert 15.0 <= teaser_duration <= 21.0
+
+
+def test_pipeline_skips_variants_by_default(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
+    rendered: list[str] = []
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: _vertical_report(video),
+        render=lambda timeline, output_path, music_path: rendered.append(output_path.name),
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=False)
+
+    assert rendered == ["final.mp4"]  # no variants unless asked
+
+
 def test_pipeline_keeps_the_source_master_by_default(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
