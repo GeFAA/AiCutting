@@ -4,6 +4,19 @@ All notable changes to AiCutting are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.2.1] — 2026-06-28
+
+### Fixed
+- **Reveal shots were cut off before their payoff.** A tilt-up / rise that uncovers a vista builds
+  for a few seconds and then settles on the revealed view — but the cut window was centred on the
+  rated moment, which sits in the *build-up*, so the cut ended while the camera was still moving and
+  you never saw the vista (e.g. a Madeira coast reveal at ~0:54 that cut away over open water). A new
+  best-effort **reveal-landing** pass detects a cut that ends while the camera is clearly moving into
+  a settle and slides the window forward — keeping its exact duration, so the beat grid is untouched
+  — to land on the settled payoff. It is deliberately conservative (a clear, sustained settle only),
+  so steady shots are left exactly as they were. Verified on the reported cut: the window slides from
+  the build-up onto the revealed coastline.
+
 ## [4.2.0] — 2026-06-28
 
 ### Added
@@ -75,6 +88,7 @@ All notable changes to AiCutting are documented here. The format follows
   length variants (`--variants` → teaser + short), and the read-only self-critic that grades the
   finished cut and surfaces it in `report.html`.
 
+[4.2.1]: https://github.com/GeFAA/AiCutting/releases/tag/v4.2.1
 [4.2.0]: https://github.com/GeFAA/AiCutting/releases/tag/v4.2.0
 [4.1.2]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.2
 [4.1.1]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.1

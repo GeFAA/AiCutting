@@ -14,6 +14,7 @@ from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.footage_meta import recording_date_label
 from aicutting.analysis.horizon import clip_level_degrees
 from aicutting.analysis.motion import score_moment_motion, select_usable_moments
+from aicutting.analysis.reveal import clip_landing_shifts
 from aicutting.analysis.screenshots import (
     build_contact_sheets,
     extract_location_keyframes,
@@ -428,7 +429,8 @@ def _finalize_timeline(
     # self-critic -- which grades the cut but never alters it, so a low grade is reported, not
     # silently "fixed".
     hero = mark_hero(plan.timeline, beat_plan)
-    levelled = _level_horizons(hero)
+    landed = _land_on_reveals(hero)
+    levelled = _level_horizons(landed)
     matched = _match_clip_colors(levelled)
     graded = matched.model_copy(
         update={"grade_strength": style.grade_strength, "title_reveal": style.title_reveal}
@@ -442,6 +444,33 @@ def _finalize_timeline(
         message=f"self-critic: grade {quality.grade} ({quality.overall:.0%})",
     )
     return plan.model_copy(update={"timeline": reframed})
+
+
+def _land_on_reveals(timeline: Timeline) -> Timeline:
+    # Reveal landing (best-effort): a cut that ends while the camera is still moving into a vista
+    # chops the reveal before its payoff. Slide such a window forward -- same duration, so the beat
+    # grid is untouched -- to land on the settle. Reading frames can fail on unreadable / fake
+    # files, so any failure leaves the timeline as-is.
+    if not timeline.clips:
+        return timeline
+    try:
+        shifts = clip_landing_shifts(timeline.clips)
+    except Exception:
+        return timeline
+    if not any(shifts):
+        return timeline
+    clips = [
+        clip.model_copy(
+            update={
+                "source_start_s": round(clip.source_start_s + shift, 3),
+                "source_end_s": round(clip.source_end_s + shift, 3),
+            }
+        )
+        if shift > 0.0
+        else clip
+        for clip, shift in zip(timeline.clips, shifts, strict=False)
+    ]
+    return timeline.model_copy(update={"clips": clips})
 
 
 def _level_horizons(timeline: Timeline) -> Timeline:

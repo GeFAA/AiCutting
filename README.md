@@ -32,8 +32,10 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
 - 🌀 **Tasteful motion & transitions.** Directional Ken-Burns push-ins on held shots, gentle
   crossfades through the calm sections, slow-mo on the calm establishing shots, punchy hard cuts on
   the drops — and a **pronounced hero push-in** on the single biggest beat.
-- 📐 **Fixes the craft.** Tilted horizons are detected and **rotated back to level**, and dynamic
-  shots gravitate to the drops while establishing shots settle into the calm sections.
+- 📐 **Fixes the craft.** Tilted horizons are detected and **rotated back to level**, dynamic
+  shots gravitate to the drops while establishing shots settle into the calm sections, and a
+  **reveal that would be cut mid-move lands on its payoff** — the window slides forward (same
+  length, so the beat grid is untouched) so you see the vista the camera was uncovering.
 - 🎚️ **Pick a vibe.** `--style` presets — cinematic, epic, chill, or vlog — retune the whole edit
   (pacing, slow-mo, transitions, grade) from one flag.
 - 📱 **Vertical & square masters.** `--aspect 9:16` reframes the whole edit into a full-bleed
@@ -116,7 +118,7 @@ More setup notes: [docs/quickstart.md](docs/quickstart.md).
  footage ─► analyse + beat grid ─► identify location (vision) ─► sample moments
         ─► motion-gate (drop shaky) ─► rate & reject (vision agent) ─► diversify
         ─► colour-sequence the journey ─► lay onto the phrase-aware beat grid (exact)
-        ─► slow-mo + push-ins + transitions ─► colour grade ─► reframe to aspect
+        ─► land reveals on their payoff ─► slow-mo + push-ins + transitions ─► colour grade ─► reframe
         ─► self-critic grade ─► title reveal
         ─► render MP4 (+ teaser / short)  +  report.html  +  Resolve / FCPXML / EDL
 ```
