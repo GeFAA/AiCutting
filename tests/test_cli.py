@@ -26,8 +26,8 @@ def test_cut_command_dry_run_reports_artifacts(monkeypatch, tmp_path) -> None:
     (input_dir / "clip.mp4").write_text("", encoding="utf-8")
 
     class FakePipeline:
-        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None):
-            del input_dir, music_path, dry_run, progress
+        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None, **kwargs):
+            del input_dir, music_path, dry_run, progress, kwargs
             output_dir.mkdir(parents=True, exist_ok=True)
             return PipelineResult(
                 analysis=output_dir / "analysis.json",
@@ -78,6 +78,39 @@ def test_cut_command_forwards_vertical_aspect(monkeypatch, tmp_path) -> None:
     assert captured.get("aspect") == "9:16"
 
 
+def test_cut_command_forwards_style_and_variants(monkeypatch, tmp_path) -> None:
+    from aicutting.pipeline import PipelineResult
+
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    (input_dir / "clip.mp4").write_text("", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    class FakePipeline:
+        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None, **kwargs):
+            del input_dir, music_path, dry_run, progress
+            captured.update(kwargs)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            return PipelineResult(
+                analysis=output_dir / "analysis.json",
+                cut_plan=output_dir / "cut-plan.json",
+                timeline=output_dir / "timeline.json",
+                final_video=output_dir / "final.mp4",
+                output_dir=output_dir,
+            )
+
+    monkeypatch.setattr("aicutting.pipeline.CutPipeline", FakePipeline)
+
+    args = ["cut", str(input_dir), "--out", str(output_dir)]
+    args += ["--style", "vlog", "--variants", "--dry-run"]
+    result = CliRunner().invoke(app, args)
+
+    assert result.exit_code == 0
+    assert captured["style"].name == "vlog"  # type: ignore[union-attr]
+    assert captured["variants"] is True
+
+
 def test_cut_command_reports_pipeline_errors(monkeypatch, tmp_path) -> None:
     from aicutting.core.errors import ExternalToolError
 
@@ -86,8 +119,8 @@ def test_cut_command_reports_pipeline_errors(monkeypatch, tmp_path) -> None:
     input_dir.mkdir()
 
     class FailingPipeline:
-        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None):
-            del input_dir, music_path, output_dir, dry_run, progress
+        def cut(self, input_dir, music_path, output_dir, dry_run, progress=None, **kwargs):
+            del input_dir, music_path, output_dir, dry_run, progress, kwargs
             raise ExternalToolError("FFmpeg is not available on PATH.")
 
     monkeypatch.setattr("aicutting.pipeline.CutPipeline", FailingPipeline)

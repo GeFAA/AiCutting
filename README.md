@@ -107,24 +107,28 @@ More setup notes: [docs/quickstart.md](docs/quickstart.md).
 
 ```
  footage ─► analyse + beat grid ─► identify location (vision) ─► sample moments
-        ─► rate & reject (vision agent) ─► diversify ─► colour-sequence the journey
-        ─► lay onto the beat grid (exact) ─► motion + transitions ─► title reveal
-        ─► render MP4  +  report.html  +  Resolve / FCPXML / EDL
+        ─► motion-gate (drop shaky) ─► rate & reject (vision agent) ─► diversify
+        ─► colour-sequence the journey ─► lay onto the phrase-aware beat grid (exact)
+        ─► slow-mo + push-ins + transitions ─► colour grade ─► reframe to aspect
+        ─► self-critic grade ─► title reveal
+        ─► render MP4 (+ teaser / short)  +  report.html  +  Resolve / FCPXML / EDL
 ```
 
-1. **Analyse** every clip and turn the music into a full-length beat grid with energy.
+1. **Analyse** every clip and turn the music into a full-length, phrase-aware beat grid with energy.
 2. **Identify the location** from representative frames (vision agent).
-3. **Sample** the footage into contact sheets and **rate every moment** — keep cinematic shots
-   with depth, reject landings / low passes / shaky / filler — then **diversify** to drop
-   near-duplicates.
-4. **Sequence by colour** into a coherent journey and **lay it onto the beat grid** so every cut
-   is exact and energy-driven.
-5. **Add craft** — directional push-ins, cohesive crossfades, and the cinematic title reveal.
-6. **Render** the MP4 and write a visual `report.html` plus NLE handoff files.
+3. **Gate & rate** — drop shaky / searching moments *before* the agent, then **rate every** kept
+   moment in contact sheets — keep cinematic shots with depth, reject landings / low passes / shaky
+   / filler — and **diversify** to drop near-duplicates.
+4. **Sequence by colour** into a coherent journey and **lay it onto the phrase-aware beat grid** so
+   every cut is exact, snapped to downbeats and energy-driven.
+5. **Add craft** — slow-mo on the calm shots, directional push-ins, cohesive crossfades, the
+   cinematic colour grade, the aspect reframe, and the title reveal.
+6. **Grade & render** — the self-critic scores the cut (on-beat, variety, pacing), then render the
+   MP4 (plus an optional teaser / short) and write a visual `report.html` and the NLE handoff files.
 
 Every stage writes an auditable JSON artifact (`footage-ratings.json`, `rhythm-grid.json`,
-`edit-decision.json`, `cut-plan.json`, `timeline.json`, `director-3-report.json`,
-`location-suggestions.json`).
+`edit-decision.json`, `cut-plan.json`, `timeline.json`, `edit-quality.json`,
+`director-3-report.json`, `location-suggestions.json`).
 
 ---
 
@@ -140,10 +144,12 @@ shows the same stages **live** as the run progresses.
 
 ## 🛣️ Roadmap — 4.0
 
-3.0 makes a clean, beat-synced, colour-coherent, titled cut. **4.0 makes it feel hand-crafted**:
-motion-aware judgment, edits that follow the song's structure, real colour grading, hero-shot
-speed ramps, vertical/social masters, and style presets. See the full vision in
-**[docs/ROADMAP.md](docs/ROADMAP.md)**.
+4.0 makes the cut feel hand-crafted, and most of it has **already shipped**: motion-aware
+selection, the phrase-aware beat grid, the cinematic colour grade, slow-mo speed ramps, style
+presets, vertical / square social masters, length variants, and the self-critic. Still ahead:
+cross-clip colour matching, stabilisation / horizon levelling, hero speed-ramps on the drop, a
+full musical-structure arc, and the self-critic *re-plan* loop. See the full vision and what's
+shipped in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
 ---
 

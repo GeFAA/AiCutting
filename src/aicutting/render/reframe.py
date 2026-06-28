@@ -1,3 +1,10 @@
+"""Reframe the finished timeline to a social aspect.
+
+Lives under ``render`` rather than ``planning`` because the reframe is purely an output-format
+decision: it only changes the timeline's frame size, and the actual reframing happens in the
+renderer, where ``ffmpeg._scale_clause`` cover-crops each landscape source into the new frame.
+"""
+
 from aicutting.core.models import Timeline
 
 # Social masters keyed by aspect ratio: the portrait reel (9:16) and the square feed post (1:1),
@@ -8,7 +15,6 @@ _SOCIAL_DIMENSIONS: dict[str, tuple[int, int]] = {
     "1:1": (1080, 1080),
 }
 _DEFAULT_ASPECT = "16:9"
-SUPPORTED_ASPECTS: tuple[str, ...] = (_DEFAULT_ASPECT, "9:16", "1:1")
 
 
 def resolve_aspect(value: str) -> str:

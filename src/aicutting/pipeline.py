@@ -20,6 +20,7 @@ from aicutting.core.artifacts import write_json_model, write_json_models
 from aicutting.core.models import AnalysisReport, ClipCandidate, CutPlan, LocationTitle, Timeline
 from aicutting.core.progress import PipelinePhase, ProgressCallback, emit_progress
 from aicutting.core.style import STYLE_PRESETS, StylePreset
+from aicutting.director.drone_models import BeatPlan
 from aicutting.director.edit_agent import rate_moments
 from aicutting.director.edit_models import Director3Report, FootageMoment, MomentRating
 from aicutting.director.engine import build_director_outputs
@@ -364,12 +365,23 @@ def _build_director_3_plan(
             warnings=[] if plan.timeline.clips else ["No clips could be assembled."],
         ),
     )
-    # Thread the style's grade into the render (the renderer reads Timeline.grade_strength), then
-    # reframe to the requested social aspect (9:16 / 1:1); 16:9 leaves the source master untouched.
+    return _finalize_timeline(plan, style, aspect, beat_plan, output_dir, progress)
+
+
+def _finalize_timeline(
+    plan: CutPlan,
+    style: StylePreset,
+    aspect: str,
+    beat_plan: BeatPlan,
+    output_dir: Path,
+    progress: ProgressCallback | None,
+) -> CutPlan:
+    # Finish the assembled cut: apply the style's grade (the renderer reads grade_strength), reframe
+    # to the requested social aspect (9:16 / 1:1; 16:9 leaves the source master untouched), then run
+    # the read-only self-critic -- which grades the cut but never alters it, so a low grade is
+    # reported, not silently "fixed".
     graded = plan.timeline.model_copy(update={"grade_strength": style.grade_strength})
     reframed = reframe_timeline(graded, aspect)
-    # Self-critic: grade the finished cut (on-beat, variety, pacing) and surface it. Read-only --
-    # it never alters the timeline -- so a low grade is reported, not silently "fixed".
     quality = score_edit(reframed, beat_plan.beats_s)
     write_json_model(output_dir / "edit-quality.json", quality)
     emit_progress(

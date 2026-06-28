@@ -15,6 +15,7 @@ from aicutting.core.models import (
     MediaAsset,
 )
 from aicutting.core.progress import PipelinePhase, ProgressEvent
+from aicutting.core.style import STYLE_PRESETS
 from aicutting.director.edit_models import FootageMoment
 from aicutting.director.models import LocationSuggestion
 from aicutting.pipeline import (
@@ -404,6 +405,36 @@ def test_pipeline_writes_self_critic_quality(
     assert 0.0 <= quality["overall"] <= 1.0
     # the cut is laid on beats, so the self-critic should confirm the on-beat dimension
     assert any(dimension["name"] == "on_beat" for dimension in quality["dimensions"])
+
+
+def test_pipeline_threads_style_into_the_rendered_timeline(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: _vertical_report(video),
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    def _grade(out: Path, **kwargs: object) -> object:
+        CutPipeline(dependencies=deps).cut(input_dir, None, out, dry_run=True, **kwargs)  # type: ignore[arg-type]
+        return json.loads((out / "timeline.json").read_text(encoding="utf-8"))
+
+    vlog = _grade(tmp_path / "vlog", style=STYLE_PRESETS["vlog"])
+    cinematic = _grade(tmp_path / "cine")  # default
+
+    # The vlog preset grades near-neutral (0.2) and disables slow-mo (every clip full speed); the
+    # default cinematic preset grades at full strength (1.0) and slows the calm shots -> proves the
+    # style's grade and slow-mo knobs both reach the rendered timeline.
+    assert vlog["grade_strength"] == 0.2
+    assert cinematic["grade_strength"] == 1.0
+    assert all(clip["speed"] == 1.0 for clip in vlog["clips"])
+    assert any(clip["speed"] < 1.0 for clip in cinematic["clips"])
 
 
 def test_pipeline_renders_length_variants_when_requested(

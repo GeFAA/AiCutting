@@ -51,8 +51,11 @@ artifacts.
 
 Typical output files:
 
-- `report.html`: a visual report of every clip the AI kept and why — open this first.
-- `final.mp4`: rendered edit.
+- `report.html`: a visual report of every clip the AI kept and why (with the self-critic grade) —
+  open this first.
+- `final.mp4`: rendered edit. With `--variants`, also `final-teaser.mp4` (15 s) and
+  `final-short.mp4` (60 s).
+- `edit-quality.json`: the self-critic grade of the finished cut (on-beat, variety, pacing).
 - `analysis.json`: detected media facts and scored clip candidates.
 - `cut-plan.json`: selected edit plan.
 - `timeline.json`: neutral timeline used by render and Resolve export.
@@ -80,6 +83,17 @@ Run a cut:
 
 ```powershell
 aicutting cut .\input-videos --music .\music.mp3 --out .\output
+```
+
+Options:
+
+- `--style / -s` — edit style preset: `cinematic` (default), `epic`, `chill`, or `vlog`.
+- `--aspect / -a` — output aspect: `16:9` (default), `9:16` (vertical reel), or `1:1` (square).
+- `--variants` — also render a 15 s teaser and a 60 s short master beside the full cut.
+- `--dry-run` — create the review artifacts without rendering video.
+
+```powershell
+aicutting cut .\input-videos --music .\music.mp3 --out .\output --style epic --aspect 9:16 --variants
 ```
 
 Create review artifacts without rendering:

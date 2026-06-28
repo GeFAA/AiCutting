@@ -201,7 +201,7 @@ def _render_header(
     quality: EditQuality | None = None,
 ) -> str:
     title = "AiCutting Report"
-    subtitle = "Drone Director 3.0"
+    subtitle = "AI Drone Director"
     if timeline is not None and timeline.title is not None:
         title = timeline.title.title or title
         subtitle = timeline.title.subtitle or subtitle

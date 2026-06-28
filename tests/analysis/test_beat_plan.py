@@ -12,8 +12,6 @@ def test_build_beat_plan_groups_energy_sections() -> None:
 
     plan = build_beat_plan(audio)
 
-    assert plan.downbeats_s == [0.0, 4.0]
-    assert plan.phrase_boundaries_s == [0.0]
     assert any(section.label == "peak" for section in plan.sections)
     assert max(section.cut_density for section in plan.sections) > 0.6
 

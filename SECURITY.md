@@ -15,8 +15,8 @@ posting them publicly and describe the problem at a high level first.
 - Output artifacts are written to your selected output folder.
 - **What the vision agent sees:** when a Codex or Claude Code backend is on
   `PATH`, AiCutting sends extracted **frames of your footage** to that local
-  agent — a few location screenshots, and (in the AI Drone Director 3.0 path)
-  contact-sheet thumbnails sampled across your clips for shot rating. These are
+  agent — a few location screenshots, and contact-sheet thumbnails sampled
+  across your clips for shot rating. These are
   handled by that tool and its account configuration; review them before running
   on private footage. Run with no agent on `PATH` to keep the pipeline fully
   deterministic and offline.

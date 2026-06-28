@@ -75,3 +75,7 @@ def test_resolve_aspect_normalises_known_values() -> None:
 def test_resolve_aspect_unknown_falls_back_to_landscape() -> None:
     assert resolve_aspect("4:3") == "16:9"
     assert resolve_aspect("nonsense") == "16:9"
+
+
+def test_resolve_aspect_strips_internal_spaces() -> None:
+    assert resolve_aspect("9 : 16") == "9:16"

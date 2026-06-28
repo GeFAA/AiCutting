@@ -80,27 +80,37 @@ Today the agent judges single thumbnails. 4.0 judges **movement**.
 
 ---
 
-## Proposed milestones
+## Milestones
 
-| Release | Theme | The win |
-|--------|-------|---------|
-| **4.0** | Motion-aware rating + musical-structure arc | The two biggest quality jumps |
-| **4.1** | Colour grading + stabilisation / levelling | A consistent, polished look |
-| **4.2** | Hero moments + speed ramps + richer transitions | Cinematic punch |
-| **4.3** | Vertical / social reframe + length variants | Ready for every platform |
-| **4.4** | Style presets + polished app | One-click, your style |
-| **4.5** | Self-critic quality loop | It grades and fixes itself |
+| Theme | The win | Status |
+|-------|---------|--------|
+| Motion-aware rating | Drop shaky shots before the agent | ✅ shipped |
+| Phrase-aware beat grid | Cut on downbeats, align to phrases | ✅ shipped |
+| Cinematic colour grade | A graded look on every clip | ✅ shipped |
+| Slow-mo speed ramps | Dreamy slow drift on the calm shots | ✅ shipped |
+| Style presets | Epic / Chill / Vlog / Cinematic from one flag | ✅ shipped |
+| Vertical / social reframe | 9:16 + 1:1 cover-cropped masters | ✅ shipped |
+| Length variants | 15 s teaser + 60 s short | ✅ shipped |
+| Self-critic grade | The director scores its own cut | ✅ shipped |
+| Cross-clip colour matching | One consistent look across the film | next |
+| Stabilisation + horizon levelling | Fix tilt and shake | next |
+| Hero speed-ramp on the drop | Land the standout moment on the beat | next |
+| Full musical-structure arc | Establish → accelerate → breathe | next |
+| Self-critic *re-plan* loop | Re-cut the weakest stretch automatically | next |
+| Subject-aware reframe + polished app | Track the subject; one-click desktop | next |
 
 ---
 
-## Why 4.0 is within reach
+## Why the rest is within reach
 
-Much of the groundwork already exists in 3.0 and is waiting to be wired in:
+The groundwork for the remaining work already exists:
 
-- The motion / drone-shot analysis already scores smoothness, jitter, search-flight and
-  takeoff/landing per candidate — pillar 1 feeds those deterministic signals into selection.
-- Beat analysis already detects downbeats and phrase boundaries — pillar 2 snaps the arc to them.
-- Per-shot colour signatures already exist — pillar 3 extends them from *ordering* into *grading*.
+- The colour-journey sequencing already computes per-shot colour signatures — cross-clip colour
+  matching extends them from *ordering* into *grading*.
+- The motion / drone-shot analysis already scores smoothness and jitter per candidate —
+  stabilisation and horizon levelling reuse those deterministic signals.
+- The self-critic already grades each cut by dimension — the *re-plan* loop feeds the weakest
+  stretch back into a re-cut.
 - A single cached decode pass (today clips are re-opened for keyframes, contact sheets, colour
   signatures, report thumbnails and the render) is a large performance win that unblocks the
   heavier passes above.

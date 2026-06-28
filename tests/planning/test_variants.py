@@ -63,6 +63,20 @@ def test_opening_variant_is_none_for_a_single_clip() -> None:
     assert opening_variant(_timeline(1), 15.0) is None
 
 
+def test_opening_variant_is_none_when_only_one_clip_fits() -> None:
+    # 10 clips of 3 s; only clip 0 starts before the 2 s mark -> a 1-clip teaser is not worth it.
+    assert opening_variant(_timeline(10, clip_s=3.0), 2.0) is None
+
+
+def test_opening_variant_runs_past_the_mark_on_a_clip_boundary() -> None:
+    # 5 clips of 4 s (starts 0,4,8,12,16). The 15 s mark falls inside the clip starting at 12, so
+    # the teaser keeps clips 0..12 and ends on the clean boundary at 16 s -- never a mid-clip chop.
+    teaser = opening_variant(_timeline(5, clip_s=4.0), 15.0)
+    assert teaser is not None
+    assert len(teaser.clips) == 4
+    assert teaser.target_duration_s == 16.0
+
+
 def test_length_variants_registry_has_teaser_and_short() -> None:
     names = {variant.name for variant in LENGTH_VARIANTS}
     assert {"teaser", "short"} <= names

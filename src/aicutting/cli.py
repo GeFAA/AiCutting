@@ -1,14 +1,15 @@
 import contextlib
 import sys
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 
 from aicutting import __version__
 from aicutting.core.errors import AiCuttingError
 from aicutting.core.paths import resolve_cut_inputs
-from aicutting.core.style import STYLE_PRESETS, resolve_style
+from aicutting.core.style import resolve_style
+from aicutting.planning.variants import LENGTH_VARIANTS
 from aicutting.render.reframe import resolve_aspect
 
 app = typer.Typer(help="AiCutting: local cinematic drone video cutting.")
@@ -101,22 +102,16 @@ def cut(
 
     try:
         with RunReporter() as reporter:
-            # The pipeline already defaults to cinematic / 16:9, so only forward a preset or aspect
-            # when the user picked another one -- keeping the call shape backward compatible.
-            cut_kwargs: dict[str, Any] = {
-                "input_dir": inputs.input_dir,
-                "music_path": inputs.music_path,
-                "output_dir": inputs.output_dir,
-                "dry_run": dry_run,
-                "progress": reporter,
-            }
-            if style_preset is not STYLE_PRESETS["cinematic"]:
-                cut_kwargs["style"] = style_preset
-            if resolved_aspect != "16:9":
-                cut_kwargs["aspect"] = resolved_aspect
-            if variants:
-                cut_kwargs["variants"] = True
-            result = CutPipeline().cut(**cut_kwargs)
+            result = CutPipeline().cut(
+                input_dir=inputs.input_dir,
+                music_path=inputs.music_path,
+                output_dir=inputs.output_dir,
+                dry_run=dry_run,
+                progress=reporter,
+                style=style_preset,
+                aspect=resolved_aspect,
+                variants=variants,
+            )
     except AiCuttingError as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=2) from exc
@@ -136,10 +131,10 @@ def _print_summary(output_dir: Path, final_video: Path, dry_run: bool) -> None:
         lines.append("[dim]Artifacts only (dry run). Run without --dry-run to render the video.[/]")
     else:
         lines.append(f"[bold]Video[/]    {final_video}")
-        for variant in ("teaser", "short"):
-            variant_path = output_dir / f"final-{variant}.mp4"
+        for variant in LENGTH_VARIANTS:
+            variant_path = output_dir / f"final-{variant.name}.mp4"
             if variant_path.exists():
-                lines.append(f"[bold]{variant.capitalize():8}[/] {variant_path}")
+                lines.append(f"[bold]{variant.name.capitalize():8}[/] {variant_path}")
     Console().print(Panel("\n".join(lines), title="Done", border_style="green", expand=False))
 
 

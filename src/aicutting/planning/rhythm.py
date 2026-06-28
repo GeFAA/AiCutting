@@ -1,4 +1,4 @@
-from aicutting.director.drone_models import BeatPlan
+from aicutting.director.drone_models import BUILD_ENERGY, PEAK_ENERGY, BeatPlan
 from aicutting.director.edit_models import RhythmSlot
 
 _DEFAULT_SLOT_S = 2.5
@@ -33,7 +33,7 @@ def build_rhythm_grid(
         # Span whole bars (drop = 1 bar, calm ~3 bars at pace 1.0) and snap the cut to a downbeat so
         # it lands on a strong beat; never run a slot across a phrase boundary so the cut aligns
         # with the song's structural change.
-        span = _BAR if energy >= 0.72 else mid_span if energy >= 0.45 else calm_span
+        span = _BAR if energy >= PEAK_ENERGY else mid_span if energy >= BUILD_ENERGY else calm_span
         next_index = round((index + span) / _BAR) * _BAR
         next_index = min(next_index, ((index // _PHRASE) + 1) * _PHRASE)
         next_index = min(max(next_index, index + _BAR), len(beats) - 1)
@@ -46,7 +46,7 @@ def build_rhythm_grid(
                 start_s=round(start, 3),
                 end_s=round(end, 3),
                 energy=round(energy, 6),
-                is_accent=energy >= 0.72 or index % _PHRASE == 0,
+                is_accent=energy >= PEAK_ENERGY or index % _PHRASE == 0,
                 section=_section_at(beat_plan, start),
             )
         )

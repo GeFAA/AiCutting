@@ -1,13 +1,11 @@
 from aicutting.core.models import AudioAnalysis
-from aicutting.director.drone_models import BeatPlan, BeatSection
+from aicutting.director.drone_models import BUILD_ENERGY, PEAK_ENERGY, BeatPlan, BeatSection
 
 
 def build_beat_plan(audio: AudioAnalysis) -> BeatPlan:
     if not audio.beats_s:
         return BeatPlan(
             beats_s=[],
-            downbeats_s=[],
-            phrase_boundaries_s=[],
             energy_curve=[],
             sections=[
                 BeatSection(
@@ -20,15 +18,10 @@ def build_beat_plan(audio: AudioAnalysis) -> BeatPlan:
             ],
         )
 
-    downbeats = [beat for index, beat in enumerate(audio.beats_s) if index % 4 == 0]
-    phrase_boundaries = [beat for index, beat in enumerate(audio.beats_s) if index % 16 == 0]
-    sections = _sections(audio)
     return BeatPlan(
         beats_s=audio.beats_s,
-        downbeats_s=downbeats,
-        phrase_boundaries_s=phrase_boundaries,
         energy_curve=audio.energy,
-        sections=sections,
+        sections=_sections(audio),
     )
 
 
@@ -71,20 +64,20 @@ def _sections(audio: AudioAnalysis) -> list[BeatSection]:
 
 
 def _label(energy: float, index: int, section_count: int) -> str:
-    if energy >= 0.72:
+    if energy >= PEAK_ENERGY:
         return "peak"
     if index == 0:
         return "intro"
     if index == section_count - 1:
         return "release"
-    if energy >= 0.45:
+    if energy >= BUILD_ENERGY:
         return "build"
     return "calm"
 
 
 def _cut_density(energy: float) -> float:
-    if energy >= 0.72:
+    if energy >= PEAK_ENERGY:
         return 0.85
-    if energy >= 0.45:
+    if energy >= BUILD_ENERGY:
         return 0.6
     return 0.35

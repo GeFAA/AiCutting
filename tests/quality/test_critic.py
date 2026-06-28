@@ -114,3 +114,10 @@ def test_missing_beats_omit_the_on_beat_dimension() -> None:
     quality = score_edit(_timeline(clips), [])
     assert all(dimension.name != "on_beat" for dimension in quality.dimensions)
     assert 0.0 <= quality.overall <= 1.0
+
+
+def test_single_clip_omits_on_beat_even_with_beats() -> None:
+    # One clip means no cut to grade, so on_beat is skipped even though beats are known.
+    quality = score_edit(_timeline([_clip("a.mp4", 0, 2, 0.0)]), [0.0, 1.0, 2.0])
+    assert all(dimension.name != "on_beat" for dimension in quality.dimensions)
+    assert 0.0 <= quality.overall <= 1.0
