@@ -25,9 +25,10 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
 - 🎨 **Tells a visual story.** A per-shot colour signature orders the clips into a coherent
   journey (dark lava grouped first, flowing into the green) instead of jumping between scenes, and
   **cross-clip colour matching** nudges every shot toward one consistent look.
-- 🎭 **Cinematic title that emerges from behind the terrain.** The location is recognised from
-  the scenery, the date is read from the footage metadata, and the title rises out from behind
-  the ridge — not a flat overlay.
+- 🎭 **Cinematic title that emerges from behind the terrain.** The location is recognised from the
+  scenery, the date is read from the footage metadata, and the bordered title card emerges from
+  behind the ridge with a **style-matched reveal** (emerge · slide · drop · wipe) — never a flat
+  overlay.
 - 🌀 **Tasteful motion & transitions.** Directional Ken-Burns push-ins on held shots, gentle
   crossfades through the calm sections, slow-mo on the calm establishing shots, punchy hard cuts on
   the drops — and a **pronounced hero push-in** on the single biggest beat.

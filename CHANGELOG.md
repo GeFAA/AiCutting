@@ -4,6 +4,15 @@ All notable changes to AiCutting are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.2.0] — 2026-06-28
+
+### Added
+- **Title Reveals 2.0** — the location/date title is reworked from one slow rise into a set of
+  distinct, punchy reveals that emerge from behind the terrain: **emerge** (rise), **slide** (up
+  from lower), **drop** (down from above), **wipe** (a soft light-edge sweep). The title is now a
+  crisp **bordered** card and settles by ~1 s (was 2–3.8 s). Each `--style` preset maps to a
+  fitting reveal (cinematic→emerge, epic→wipe, chill→slide, vlog→drop).
+
 ## [4.1.2] — 2026-06-28
 
 ### Fixed
@@ -66,6 +75,7 @@ All notable changes to AiCutting are documented here. The format follows
   length variants (`--variants` → teaser + short), and the read-only self-critic that grades the
   finished cut and surfaces it in `report.html`.
 
+[4.2.0]: https://github.com/GeFAA/AiCutting/releases/tag/v4.2.0
 [4.1.2]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.2
 [4.1.1]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.1
 [4.1.0]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.0
