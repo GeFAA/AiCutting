@@ -26,6 +26,7 @@ class StylePreset:
     slow_mo_energy: float
     transition_energy: float
     grade_strength: float
+    title_reveal: str = "emerge"  # which title reveal fits this vibe (emerge/slide/drop/wipe)
 
 
 STYLE_PRESETS: dict[str, StylePreset] = {
@@ -46,6 +47,7 @@ STYLE_PRESETS: dict[str, StylePreset] = {
         slow_mo_energy=0.35,
         transition_energy=0.45,
         grade_strength=1.4,
+        title_reveal="wipe",
     ),
     # Longer calm holds and a softer grade; otherwise the gentle cinematic feel.
     "chill": StylePreset(
@@ -55,6 +57,7 @@ STYLE_PRESETS: dict[str, StylePreset] = {
         slow_mo_energy=0.3,
         transition_energy=0.4,
         grade_strength=0.6,
+        title_reveal="slide",
     ),
     # Fast, punchy hard cuts: no slow-mo, no crossfades, a near-neutral grade.
     "vlog": StylePreset(
@@ -64,6 +67,7 @@ STYLE_PRESETS: dict[str, StylePreset] = {
         slow_mo_energy=0.3,
         transition_energy=0.0,
         grade_strength=0.2,
+        title_reveal="drop",
     ),
 }
 

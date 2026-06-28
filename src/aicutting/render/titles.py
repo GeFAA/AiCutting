@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 from aicutting.core.models import LocationTitle
@@ -73,65 +74,63 @@ def build_title_overlay(
     """
     if style == "plain":
         return f"[vbase]{build_drawtext_filter(title, font_path)}[vout]"
-    mask = "horizon" if style == "horizon" else "luma"
-    return _emerge_subgraph(title, font_path, width, height, fps, mask=mask)
+    if style == "horizon":
+        return _emerge_subgraph(title, font_path, width, height, fps, mask="horizon")
+    reveal = _REVEALS.get(style, _emerge_subgraph)
+    return reveal(title, font_path, width, height, fps)
 
 
-def _emerge_subgraph(
+def _reveal_subgraph(
     title: LocationTitle,
     font_path: Path | None,
     width: int,
     height: int,
     fps: float,
     *,
-    mask: str,
+    y_of: Callable[[int], str],
+    mask_mid: str | None = None,
+    reveal_mask: str | None = None,
 ) -> str:
-    # Geometry scales with the frame height so the look holds at the 1280x720 preview and the
-    # 3840x2160 master alike. The title block sits in the upper-middle straddling the horizon so
-    # that it can rise out of the terrain rather than float in the clear lower third.
+    # The shared reveal assembler. Geometry scales with height so the look holds from the 720p
+    # preview to the 4K master. ``y_of`` gives each reveal its own motion; ``reveal_mask`` is an
+    # optional extra mask on the text alpha (the wipe); ``mask_mid`` overrides the terrain mask
+    # (the horizon line). All reveals keep the luma occlusion -- the title emerges from the terrain.
     title_size = round(height / 11)
     subtitle_size = round(height / 26)
     title_y = round(height * 0.34)
     subtitle_y = title_y + title_size + round(height * 0.018)
-    rise = round(height * 0.11)
     shadow = max(1, round(height / 360))
     sigma = max(1.0, height / 360)
     window_s = 9.0
-
-    # The block starts `rise` px lower (deeper behind the terrain) and eases up to rest by ~t=3.8.
-    rise_term = f"{rise}*(1-{_smoothstep('t', 2.0, 1.8)})"
     fade = _intro_fade()
-    # Occlusion is full strength through the emergence, then relaxes (T = blend timestamp) so the
-    # settled title stays fully legible even when it ends up over dark ground or after a cut.
-    relax = _smoothstep("T", 4.5, 1.5)
+    # Occlusion is full strength through the emergence, then relaxes sooner than before so the
+    # settled title stays legible without the long slow hold that read as boring.
+    relax = _smoothstep("T", 2.2, 1.2)
     blend_expr = f"A*(B+(255-B)*{relax})/255"
 
     bold = _bold_variant(font_path)
-    draws = [_drawtext(title.title, bold, title_size, shadow, f"{title_y}+{rise_term}", fade)]
-    subtitle = title.subtitle or ""
-    if subtitle:
+    draws = [_drawtext(title.title, bold, title_size, shadow, y_of(title_y), fade)]
+    if title.subtitle:
         draws.append(
-            _drawtext(subtitle, font_path, subtitle_size, shadow, f"{subtitle_y}+{rise_term}", fade)
+            _drawtext(title.subtitle, font_path, subtitle_size, shadow, y_of(subtitle_y), fade)
         )
     text_chain = ",".join(draws)
+    # Map the video luma to a soft silhouette: dark terrain -> 0 (hide), bright sky -> 255 (show).
+    silhouette = mask_mid or "lut=c0='255*clip((val-70)/60,0,1)'"
+    extra = f",{reveal_mask}" if reveal_mask else ""
 
-    if mask == "horizon":
-        line = round(height * 0.52)
-        feather = round(height * 0.06)
-        mask_mid = f"geq=lum='255*clip(({line}-Y)/{feather},0,1)'"
-    else:
-        # Map the video luma to a soft silhouette: dark terrain -> 0 (hide), bright sky -> 255
-        # (show), with a feathered edge over luma 70..130 that gblur softens further.
-        mask_mid = "lut=c0='255*clip((val-70)/60,0,1)'"
-
+    text_layer = (
+        f"color=c=black@0:s={width}x{height}:d={_g(window_s)}:r={fps},"
+        f"format=rgba,{text_chain}{extra}[txtcol]"
+    )
     segments = [
         # Pin the format before the split: split emits one negotiated format to both branches,
         # and without this the gray mask branch drags the negotiation and the base loses its
         # chroma (the whole picture turns grayscale) when [vbase] comes from xfade.
         "[vbase]format=yuv420p,split=2[base][src]",
-        f"[src]format=gray,{mask_mid},gblur=sigma={_g(sigma)},"
+        f"[src]format=gray,{silhouette},gblur=sigma={_g(sigma)},"
         f"trim=end={_g(window_s)},setpts=PTS-STARTPTS[occ]",
-        f"color=c=black@0:s={width}x{height}:d={_g(window_s)}:r={fps},format=rgba,{text_chain}[txtcol]",
+        text_layer,
         "[txtcol]split[txtc1][txtc2]",
         "[txtc2]alphaextract[ta]",
         f"[ta][occ]blend=all_expr='{blend_expr}':shortest=1[na]",
@@ -139,6 +138,72 @@ def _emerge_subgraph(
         "[base][tl]overlay=eof_action=pass[vout]",
     ]
     return ";".join(segments)
+
+
+def _emerge_subgraph(
+    title: LocationTitle, font_path: Path | None, width: int, height: int, fps: float,
+    *, mask: str = "luma",
+) -> str:
+    # The hero reveal: the title rises a touch out from behind the terrain, settling fast (~1s).
+    if mask == "horizon":
+        line = round(height * 0.52)
+        feather = round(height * 0.06)
+        horizon = f"geq=lum='255*clip(({line}-Y)/{feather},0,1)'"
+        rise = round(height * 0.11)
+        return _reveal_subgraph(
+            title, font_path, width, height, fps,
+            y_of=lambda y: f"{y}+{rise}*(1-{_smoothstep('t', 0.4, 0.6)})", mask_mid=horizon,
+        )
+    rise = round(height * 0.11)
+    return _reveal_subgraph(
+        title, font_path, width, height, fps,
+        y_of=lambda y: f"{y}+{rise}*(1-{_smoothstep('t', 0.4, 0.6)})",
+    )
+
+
+def _slide_subgraph(
+    title: LocationTitle, font_path: Path | None, width: int, height: int, fps: float
+) -> str:
+    # Slides up from lower in the frame -- a longer, more pronounced travel than emerge.
+    off = round(height * 0.22)
+    return _reveal_subgraph(
+        title, font_path, width, height, fps,
+        y_of=lambda y: f"{y}+{off}*(1-{_smoothstep('t', 0.4, 0.7)})",
+    )
+
+
+def _drop_subgraph(
+    title: LocationTitle, font_path: Path | None, width: int, height: int, fps: float
+) -> str:
+    # Drops down from above into place.
+    off = round(height * 0.14)
+    return _reveal_subgraph(
+        title, font_path, width, height, fps,
+        y_of=lambda y: f"{y}-{off}*(1-{_smoothstep('t', 0.4, 0.6)})",
+    )
+
+
+def _wipe_subgraph(
+    title: LocationTitle, font_path: Path | None, width: int, height: int, fps: float
+) -> str:
+    # Stationary text revealed by a soft vertical edge sweeping left -> right over ~0.35..1.2s.
+    edge = f"({width}*1.3*clip((T-0.35)/0.85,0,1)-{width}*0.15)"
+    feather = f"({width}*0.1)"
+    wipe = (
+        f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+        f"a='alpha(X,Y)*clip(({edge}-X)/{feather},0,1)'"
+    )
+    return _reveal_subgraph(
+        title, font_path, width, height, fps, y_of=lambda y: str(y), reveal_mask=wipe
+    )
+
+
+_REVEALS: dict[str, Callable[[LocationTitle, Path | None, int, int, float], str]] = {
+    "emerge": _emerge_subgraph,
+    "slide": _slide_subgraph,
+    "drop": _drop_subgraph,
+    "wipe": _wipe_subgraph,
+}
 
 
 def _drawtext(
@@ -152,9 +217,13 @@ def _drawtext(
     # fontfile MUST precede text (see build_drawtext_filter). The text is horizontally centred and
     # carries a soft shadow so white glyphs stay readable over both bright sky and dark terrain.
     font = f"fontfile='{escape_drawtext_text(font_path.as_posix())}':" if font_path else ""
+    # A crisp dark outline keeps the title premium and legible over bright sky or dark terrain;
+    # the soft shadow underneath gives it depth as it emerges.
+    border = max(2, round(fontsize / 26))
     return (
         "drawtext="
         f"{font}text='{escape_drawtext_text(text)}':fontcolor=white:fontsize={fontsize}:"
+        f"borderw={border}:bordercolor=black@0.55:"
         f"shadowcolor=black@0.5:shadowx={shadow}:shadowy={shadow}:"
         f"x=(w-text_w)/2:y='{y_expr}':alpha='{alpha_expr}'"
     )
@@ -171,9 +240,9 @@ def _g(value: float) -> str:
 
 
 def _intro_fade() -> str:
-    # Invisible, fade in 2->3 s, hold, fade out 7->8 s. Single-quoted in the filter so the
-    # commas inside the expression do not split the drawtext options.
-    return "if(lt(t,2),0,if(lt(t,3),t-2,if(lt(t,7),1,if(lt(t,8),8-t,0))))"
+    # Invisible, fade in 0.4->1.0 s (punchy), hold, fade out 7->8 s. Single-quoted in the filter so
+    # the commas inside the expression do not split the drawtext options.
+    return "if(lt(t,0.4),0,if(lt(t,1),(t-0.4)/0.6,if(lt(t,7),1,if(lt(t,8),8-t,0))))"
 
 
 def _bold_variant(font_path: Path | None) -> Path | None:

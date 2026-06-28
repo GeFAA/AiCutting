@@ -58,9 +58,32 @@ def test_build_title_overlay_emerges_text_from_behind_terrain() -> None:
     assert "blend=all_expr=" in graph
     assert "alphamerge" in graph
     assert "overlay=eof_action=pass[vout]" in graph
-    # The block rises (eased) and fades across the 2-8s intro.
-    assert "1-(clip((t-2)/1.8" in graph
-    assert "alpha='if(lt(t,2),0,if(lt(t,3),t-2," in graph
+    # The block rises (eased) and fades in fast -- by ~1s, not the old slow 2-3.8s.
+    assert "(t-0.4)/0.6" in graph  # the fast rise smoothstep
+    assert "alpha='if(lt(t,0.4),0," in graph  # the fast fade-in
+    assert "lt(t,2),0" not in graph  # not the old slow fade
+
+
+def test_unknown_reveal_falls_back_to_emerge() -> None:
+    out = build_title_overlay(_reveal_title(), None, 1920, 1080, _FPS, style="does-not-exist")
+    assert out.endswith("overlay=eof_action=pass[vout]")
+    assert "lut=c0=" in out  # the emerge luma occlusion
+
+
+def test_each_reveal_emerges_from_behind_the_terrain() -> None:
+    for style in ("emerge", "slide", "drop", "wipe"):
+        graph = build_title_overlay(_reveal_title(), None, 1920, 1080, _FPS, style=style)
+        assert "[vbase]format=yuv420p,split=2[base][src]" in graph  # format pinned before split
+        assert "blend=all_expr=" in graph  # the terrain occlusion blend
+        assert graph.endswith("overlay=eof_action=pass[vout]")
+
+
+def test_reveals_differ_in_motion() -> None:
+    graphs = {
+        s: build_title_overlay(_reveal_title(), None, 1920, 1080, _FPS, style=s)
+        for s in ("emerge", "slide", "drop", "wipe")
+    }
+    assert len(set(graphs.values())) == 4  # four distinct filtergraphs
 
 
 def test_build_title_overlay_pins_format_before_split_to_keep_color() -> None:

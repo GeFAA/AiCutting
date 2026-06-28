@@ -30,6 +30,13 @@ def test_resolve_style_maps_known_names_case_insensitively() -> None:
     assert resolve_style("cinematic").name == "cinematic"
 
 
+def test_presets_carry_a_fitting_title_reveal() -> None:
+    assert STYLE_PRESETS["cinematic"].title_reveal == "emerge"
+    assert STYLE_PRESETS["epic"].title_reveal == "wipe"
+    assert STYLE_PRESETS["chill"].title_reveal == "slide"
+    assert STYLE_PRESETS["vlog"].title_reveal == "drop"
+
+
 def test_resolve_style_unknown_falls_back_to_cinematic() -> None:
     fallback = resolve_style("does-not-exist")
     assert fallback is STYLE_PRESETS["cinematic"]

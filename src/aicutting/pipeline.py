@@ -430,7 +430,9 @@ def _finalize_timeline(
     hero = mark_hero(plan.timeline, beat_plan)
     levelled = _level_horizons(hero)
     matched = _match_clip_colors(levelled)
-    graded = matched.model_copy(update={"grade_strength": style.grade_strength})
+    graded = matched.model_copy(
+        update={"grade_strength": style.grade_strength, "title_reveal": style.title_reveal}
+    )
     reframed = _content_reframe(reframe_timeline(graded, aspect))
     quality = score_edit(reframed, beat_plan.beats_s)
     write_json_model(output_dir / "edit-quality.json", quality)

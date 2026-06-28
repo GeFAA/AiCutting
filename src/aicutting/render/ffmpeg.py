@@ -117,6 +117,7 @@ def build_ffmpeg_command(
             timeline.width,
             timeline.height,
             timeline.fps,
+            style=timeline.title_reveal,
         )
         filter_complex = f"{base_filter};{title_graph}"
     else:
