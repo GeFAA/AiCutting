@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aicutting"
-version = "4.1.0"
+version = "4.1.1"
 description = "Local AI drone-video auto-editor — beat-synced, colour-coherent cinematic cuts."
 readme = "README.md"
 requires-python = ">=3.11"

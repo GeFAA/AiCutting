@@ -4,6 +4,15 @@ All notable changes to AiCutting are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.1.1] — 2026-06-28
+
+### Fixed
+- **Cuts landed off the beat when the song's first beat is early.** A small lead-in (e.g. a first
+  beat at 0.26 s) was too short for an intro slot, so the rhythm grid started at the first beat
+  instead of at 0; the assembled timeline was then offset from the music and every cut landed
+  ~0.26 s early (the self-critic correctly graded such a cut F). The grid now always starts at
+  t=0. Verified on a real song: 0/13 → 13/13 cuts on the beat, 0 ms drift.
+
 ## [4.1.0] — 2026-06-28
 
 ### Added — a real desktop app
@@ -49,5 +58,6 @@ All notable changes to AiCutting are documented here. The format follows
   length variants (`--variants` → teaser + short), and the read-only self-critic that grades the
   finished cut and surfaces it in `report.html`.
 
+[4.1.1]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.1
 [4.1.0]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.0
 [4.0.0]: https://github.com/GeFAA/AiCutting/releases/tag/v4.0.0
