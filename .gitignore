@@ -15,3 +15,6 @@ output/
 outputs/
 renders/
 *.log
+deployment/
+*.build/
+*.dist/

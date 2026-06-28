@@ -102,11 +102,27 @@ Create review artifacts without rendering:
 aicutting cut .\input-videos --out .\output --dry-run
 ```
 
-Launch the GUI:
+Launch the desktop app (AiCutting Studio — a Qt Quick / QML window: drop a folder,
+pick a style / aspect / variants, watch the five-stage tracker, then preview and
+open the outputs):
 
 ```powershell
 aicutting-studio
 ```
+
+## Packaging the desktop app
+
+Build a standalone Windows app (no Python install needed to run it) with
+[`pyside6-deploy`](https://doc.qt.io/qtforpython-6/deployment/deployment-pyside6-deploy.html):
+
+```powershell
+py -m pip install -e ".[gui]"
+py -m pip install nuitka
+pyside6-deploy -c pysidedeploy.spec
+```
+
+The windowed app lands in `.\dist`. The config trims unused QML plugins and bundles the
+`gui/qml` folder. The app still calls the system `ffmpeg` for rendering, so keep FFmpeg on `PATH`.
 
 ## Optional Local Agent Titles
 
