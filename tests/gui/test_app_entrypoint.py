@@ -39,6 +39,11 @@ def test_main_cli_returns_friendly_error_when_gui_extra_is_missing(
     assert "Install the GUI extra" in capsys.readouterr().out
 
 
+def test_qml_main_file_exists_and_references_backend() -> None:
+    qml = Path("src/aicutting/gui/qml/Main.qml").read_text(encoding="utf-8")
+    assert "backend" in qml  # the View binds to the Backend context property
+
+
 def test_desktop_script_uses_cli_wrapper() -> None:
     project_root = Path(__file__).parents[2]
     pyproject = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
