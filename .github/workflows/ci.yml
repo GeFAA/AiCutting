@@ -14,11 +14,16 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install package
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev,gui]"
       - name: Ruff
         run: python -m ruff check .
       - name: Mypy
         run: python -m mypy src
       - name: Pytest
+        # The QML / Qt tests run headless on the runner: the offscreen platform needs no display
+        # and the software backend needs no GPU.
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
         run: python -m pytest
 
