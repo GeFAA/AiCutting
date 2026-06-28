@@ -1,5 +1,6 @@
+import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from aicutting.agents.backends import detect_agent_backends
@@ -48,6 +49,9 @@ class PipelineResult:
     timeline: Path
     final_video: Path
     output_dir: Path
+    grade: str | None = None
+    grade_overall: float | None = None
+    grade_dimensions: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -165,12 +169,16 @@ class CutPipeline:
             PipelinePhase.DONE,
             message=f"{len(plan.timeline.clips)} clips · {plan.timeline.target_duration_s:.0f}s",
         )
+        grade, grade_overall, grade_dimensions = _read_grade(output_dir)
         return PipelineResult(
             analysis=output_dir / "analysis.json",
             cut_plan=output_dir / "cut-plan.json",
             timeline=output_dir / "timeline.json",
             final_video=final_video,
             output_dir=output_dir,
+            grade=grade,
+            grade_overall=grade_overall,
+            grade_dimensions=grade_dimensions,
         )
 
 
@@ -214,6 +222,17 @@ def _location_label(suggestions: list[LocationSuggestion]) -> str:
     if best is None or best.place == "unknown" or not best.should_render:
         return "no confident location"
     return f"{best.title or best.place} ({best.confidence:.2f})"
+
+
+def _read_grade(output_dir: Path) -> tuple[str | None, float | None, dict[str, float]]:
+    # The self-critic grade is already written to edit-quality.json during finalize; surface it on
+    # the result so the GUI binds to data, not a parsed log line. Best-effort.
+    try:
+        data = json.loads((output_dir / "edit-quality.json").read_text(encoding="utf-8"))
+        dimensions = {d["name"]: float(d["score"]) for d in data.get("dimensions", [])}
+        return data.get("grade"), data.get("overall"), dimensions
+    except Exception:
+        return None, None, {}
 
 
 def _safe_build_report(output_dir: Path) -> Path | None:

@@ -383,6 +383,28 @@ def _vertical_report(video: Path) -> AnalysisReport:
     )
 
 
+def test_pipeline_result_carries_the_self_critic_grade(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: _vertical_report(video),
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    result = CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=True)
+
+    assert result.grade in {"A", "B", "C", "D", "F"}
+    assert result.grade_overall is not None and 0.0 <= result.grade_overall <= 1.0
+    assert "on_beat" in result.grade_dimensions
+
+
 def test_pipeline_writes_self_critic_quality(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
