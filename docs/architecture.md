@@ -21,12 +21,16 @@ the result — all local, all transparent.
 5. **Assemble on the beat.** Lay the colour-ordered shots onto the energy-driven, phrase-aware grid
    so every cut lands exactly on a beat (snapped to downbeats, never crossing a phrase boundary);
    slow-mo the calm establishing shots (still beat-exact), flow gentle crossfades through the calm
-   sections, and keep the drops as punchy hard cuts. The chosen **style preset** tunes pace,
-   slow-mo, transitions and grade across the whole run.
-6. **Finish the timeline.** Apply the cinematic **colour grade**, **reframe** to the requested
-   aspect (16:9 master, or a cover-cropped 9:16 / 1:1 social master), then run the read-only
-   **self-critic**, which grades the cut (on-beat, variety, pacing) into `edit-quality.json` —
-   it reports a weak grade, never silently "fixes" it.
+   sections, and keep the drops as punchy hard cuts. Dynamic shots gravitate to the drops and
+   establishing shots to the calm sections (the **musical-structure arc**), within the colour
+   journey. The chosen **style preset** tunes pace, slow-mo, transitions and grade across the run.
+6. **Finish the timeline.** Crown the **hero shot** on the biggest beat (a pronounced push-in),
+   **level** tilted horizons, **colour-match** the clips toward one consistent look, apply the
+   cinematic **colour grade**, **reframe** to the requested aspect (16:9 master, or a cover-cropped
+   9:16 / 1:1 social master whose crop slides toward each subject), then run the read-only
+   **self-critic**, which grades the cut (on-beat, variety, pacing) into `edit-quality.json`. A weak
+   agent cut is **re-planned** against the deterministic fallback and the better-grading one is kept
+   — but a strong cut is never silently altered.
 7. **Compose the title.** Overlay the place (where) over the recording date (when, parsed from the
    footage metadata).
 8. **Write artifacts & report.** Emit the JSON artifacts and a self-contained `report.html` (which
@@ -44,14 +48,18 @@ a full-length, beat-synced edit from safe-zone candidates.
 - `core`: shared models, errors, path validation, artifact IO, progress events, and the **style
   presets** (`core/style.py`).
 - `analysis`: deterministic facts — discovery, ffprobe, motion / drone-shot scoring, audio & beat
-  analysis, footage metadata, colour signatures, and contact-sheet sampling.
+  analysis, footage metadata, colour signatures, contact-sheet sampling, **cross-clip colour
+  matching** (`color_match.py`), **horizon detection** (`horizon.py`), and the **content-aware
+  reframe** offsets (`content_reframe.py`).
 - `director`: the vision agents (location recognition, moment rating), the beat-plan model, and
   review models.
-- `planning`: target duration, the phrase-aware rhythm / beat grid, colour sequencing, beat-exact
-  timeline assembly, and the **length variants** (`planning/variants.py`).
-- `render`: FFmpeg command construction (Ken Burns motion, slow-mo, the cinematic colour grade, the
-  title overlay) and the **aspect reframe** (`render/reframe.py`).
-- `quality`: the **self-critic** that grades the finished cut (`quality/critic.py`).
+- `planning`: target duration, the phrase-aware rhythm / beat grid, colour sequencing (with the
+  musical-structure arc), beat-exact timeline assembly, the **hero moment** (`planning/hero.py`),
+  and the **length variants** (`planning/variants.py`).
+- `render`: FFmpeg command construction (Ken Burns motion, slow-mo, colour grade & match, horizon
+  rotation, the title overlay) and the **aspect reframe** (`render/reframe.py`).
+- `quality`: the **self-critic** that grades the finished cut and its **re-plan** loop
+  (`quality/critic.py`).
 - `report`: the self-contained `report.html` generator (including the self-critic panel).
 - `resolve`: FCPXML, EDL, and media-manifest export.
 - `agents`: local Codex / Claude Code detection.

@@ -22,19 +22,34 @@ always.
 
 ---
 
-## Shipped in 4.0 so far
+## Shipped in 4.0
 
-- ✅ **Cinematic colour grade** — a graded look on every clip, tunable per style.
 - ✅ **Motion-aware selection** — shaky / searching moments are dropped before the agent sees them.
 - ✅ **Phrase-aware cutting** — cuts snap to downbeats and never run across a phrase boundary.
+- ✅ **Cinematic colour grade** — a graded look on every clip, tunable per style.
+- ✅ **Cross-clip colour matching** — every clip is nudged toward one consistent look.
+- ✅ **Horizon levelling** — clips with a clearly tilted horizon are rotated back to level.
 - ✅ **Speed ramps / slow-mo** — calm establishing shots drift in slow motion, still beat-exact.
+- ✅ **Hero moment on the drop** — the clip on the biggest beat gets a pronounced push-in.
+- ✅ **Musical-structure arc** — dynamic shots gravitate to the drops, establishing shots to the
+  calm sections — within the colour journey.
 - ✅ **Style presets** — `--style` cinematic · epic · chill · vlog retunes the whole edit.
 - ✅ **Vertical & square masters** — `--aspect 9:16` / `1:1` reframes the cut into a full-bleed,
-  cover-cropped social master (no bars, no stretch). *Subject-aware tracking is the next step.*
+  cover-cropped social master (no bars, no stretch).
+- ✅ **Content-aware reframe** — the vertical/square crop slides toward each clip's subject.
+- ✅ **Length masters** — `--variants` renders a 15s teaser and a 60s short beside the full cut.
 - ✅ **Self-critic** — the director grades its own finished cut (on-beat, variety, pacing) and
-  surfaces the score in `report.html`. *Auto-fixing the weak parts is the next step.*
-- ✅ **Length masters** — `--variants` renders a 15s teaser and a 60s short beside the full cut
-  (the titled, beat-synced opening). *AI-picked mid-song highlight windows are the next step.*
+  surfaces the score in `report.html`.
+- ✅ **Self-critic re-plan** — a weak cut is re-planned against the deterministic fallback and the
+  better-grading one is kept.
+
+## Still ahead
+
+- Full optical stabilisation (shake, beyond horizon levelling — today shaky shots are rejected).
+- True subject / saliency tracking for the reframe (faces, motion — beyond column detail).
+- AI-picked mid-song highlight windows for the length masters (beyond the titled opening).
+- Auto-pick the track by footage energy; cut-to-the-kick stem sync.
+- A more polished desktop app.
 
 ---
 
@@ -92,12 +107,16 @@ Today the agent judges single thumbnails. 4.0 judges **movement**.
 | Vertical / social reframe | 9:16 + 1:1 cover-cropped masters | ✅ shipped |
 | Length variants | 15 s teaser + 60 s short | ✅ shipped |
 | Self-critic grade | The director scores its own cut | ✅ shipped |
-| Cross-clip colour matching | One consistent look across the film | next |
-| Stabilisation + horizon levelling | Fix tilt and shake | next |
-| Hero speed-ramp on the drop | Land the standout moment on the beat | next |
-| Full musical-structure arc | Establish → accelerate → breathe | next |
-| Self-critic *re-plan* loop | Re-cut the weakest stretch automatically | next |
-| Subject-aware reframe + polished app | Track the subject; one-click desktop | next |
+| Cross-clip colour matching | One consistent look across the film | ✅ shipped |
+| Horizon levelling | Straighten tilted shots | ✅ shipped |
+| Hero moment on the drop | Pronounced push-in on the biggest beat | ✅ shipped |
+| Musical-structure arc | Dynamic on the drops, establishing on the calm | ✅ shipped |
+| Self-critic re-plan loop | Keep the better-grading of two cuts | ✅ shipped |
+| Content-aware reframe | Slide the crop toward the subject | ✅ shipped |
+| Full optical stabilisation | Smooth out shake | next |
+| Subject / saliency tracking | Faces & motion, beyond column detail | next |
+| Auto-pick music + stem sync | Choose the track; cut to the kick | next |
+| Polished desktop app | One-click preview & export | next |
 
 ---
 

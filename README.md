@@ -23,25 +23,28 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
 - 🥁 **Cuts exactly on the beat.** Pacing follows the music's energy — calm shots breathe, the
   drops cut fast — and every cut lands *on the beat*, not near it.
 - 🎨 **Tells a visual story.** A per-shot colour signature orders the clips into a coherent
-  journey (dark lava grouped first, flowing into the green) instead of jumping between scenes.
+  journey (dark lava grouped first, flowing into the green) instead of jumping between scenes, and
+  **cross-clip colour matching** nudges every shot toward one consistent look.
 - 🎭 **Cinematic title that emerges from behind the terrain.** The location is recognised from
   the scenery, the date is read from the footage metadata, and the title rises out from behind
   the ridge — not a flat overlay.
 - 🌀 **Tasteful motion & transitions.** Directional Ken-Burns push-ins on held shots, gentle
-  crossfades through the calm sections, slow-mo on the calm establishing shots, and punchy hard
-  cuts on the drops.
+  crossfades through the calm sections, slow-mo on the calm establishing shots, punchy hard cuts on
+  the drops — and a **pronounced hero push-in** on the single biggest beat.
+- 📐 **Fixes the craft.** Tilted horizons are detected and **rotated back to level**, and dynamic
+  shots gravitate to the drops while establishing shots settle into the calm sections.
 - 🎚️ **Pick a vibe.** `--style` presets — cinematic, epic, chill, or vlog — retune the whole edit
   (pacing, slow-mo, transitions, grade) from one flag.
 - 📱 **Vertical & square masters.** `--aspect 9:16` reframes the whole edit into a full-bleed
   Reels / TikTok / Shorts master (or `1:1` for the feed) — cover-cropped to fill the frame, never
-  stretched, no letterbox bars.
+  stretched, no letterbox bars, and the crop **slides toward each shot's subject**.
 - ⏱️ **One run, every length.** `--variants` also renders a 15-second teaser and a 60-second short
   beside the full edit — each the titled, beat-synced opening hook, ready to post.
 - 📊 **Shows its work.** A self-contained `report.html` with a thumbnail of every chosen clip and
   *why* it was kept, plus a live terminal view of each stage as it runs.
 - 🎓 **Grades its own edit.** A built-in self-critic scores the finished cut — on-beat accuracy,
-  shot variety, pacing — and shows the grade and breakdown in the report, so you see the quality,
-  not just the result.
+  shot variety, pacing — shows the grade and breakdown in the report, and **re-plans a weak cut**
+  against the deterministic fallback, keeping whichever grades higher.
 - 🔒 **100% local.** Vision agent (Codex / Claude Code) + FFmpeg. Your footage never leaves the
   machine. No agent? A deterministic fallback still produces a full, beat-synced edit.
 - 🎞️ **Hands off to your NLE.** Exports a rendered MP4 *and* DaVinci Resolve / FCPXML / EDL
@@ -144,12 +147,12 @@ shows the same stages **live** as the run progresses.
 
 ## 🛣️ Roadmap — 4.0
 
-4.0 makes the cut feel hand-crafted, and most of it has **already shipped**: motion-aware
-selection, the phrase-aware beat grid, the cinematic colour grade, slow-mo speed ramps, style
-presets, vertical / square social masters, length variants, and the self-critic. Still ahead:
-cross-clip colour matching, stabilisation / horizon levelling, hero speed-ramps on the drop, a
-full musical-structure arc, and the self-critic *re-plan* loop. See the full vision and what's
-shipped in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+4.0 makes the cut feel hand-crafted, and it has **shipped**: motion-aware selection, the
+phrase-aware beat grid, the cinematic colour grade, cross-clip colour matching, horizon levelling,
+slow-mo speed ramps, the hero moment on the drop, the musical-structure arc, style presets,
+vertical / square social masters, content-aware reframe, length variants, the self-critic and its
+re-plan loop. Still ahead: full optical stabilisation, subject / saliency tracking, auto-picked
+music, and a more polished desktop app. See the full vision in **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
 ---
 
