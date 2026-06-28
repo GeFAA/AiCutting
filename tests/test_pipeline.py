@@ -355,22 +355,55 @@ def test_pipeline_writes_drone_director_3_artifacts_with_fallback(
 
 
 def _vertical_report(video: Path) -> AnalysisReport:
+    # A long-enough beat track so the rhythm grid yields several slots (hence real cuts the
+    # self-critic can grade), and 4K media so the 9:16 reframe is a visible downscale.
     return AnalysisReport(
-        media=[MediaAsset(path=video, duration_s=60, width=3840, height=2160, fps=25)],
+        media=[MediaAsset(path=video, duration_s=80, width=3840, height=2160, fps=25)],
         candidates=[
             ClipCandidate(
                 asset_path=video, start_s=20, end_s=25, quality_score=0.9, motion_score=0.7,
                 diversity_key="c0", shot_type=DroneShotType.REVEAL, drone_director_score=0.9,
             ),
             ClipCandidate(
-                asset_path=video, start_s=30, end_s=35, quality_score=0.85, motion_score=0.6,
+                asset_path=video, start_s=35, end_s=40, quality_score=0.85, motion_score=0.6,
                 diversity_key="c1", shot_type=DroneShotType.APPROACH, drone_director_score=0.85,
+            ),
+            ClipCandidate(
+                asset_path=video, start_s=50, end_s=55, quality_score=0.8, motion_score=0.5,
+                diversity_key="c2", shot_type=DroneShotType.ESTABLISHING, drone_director_score=0.8,
             ),
         ],
         audio=AudioAnalysis(
-            path=None, duration_s=12.0, beats_s=[0, 1, 2, 3, 4, 5, 6, 7, 8], energy=[0.2, 0.9]
+            path=None,
+            duration_s=40.0,
+            beats_s=[i * 0.5 for i in range(80)],
+            energy=[0.2, 0.9, 0.3, 0.8],
         ),
     )
+
+
+def test_pipeline_writes_self_critic_quality(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    video = input_dir / "clip.mp4"
+    video.write_text("", encoding="utf-8")
+    monkeypatch.setattr("aicutting.pipeline.detect_agent_backends", lambda: [])
+    deps = PipelineDependencies(
+        analyze=lambda input_path, music_path: _vertical_report(video),
+        render=lambda timeline, output_path, music_path: None,
+        export_resolve=lambda timeline, out_path: None,
+    )
+
+    CutPipeline(dependencies=deps).cut(input_dir, None, output_dir, dry_run=True)
+
+    quality = json.loads((output_dir / "edit-quality.json").read_text(encoding="utf-8"))
+    assert quality["grade"] in {"A", "B", "C", "D", "F"}
+    assert 0.0 <= quality["overall"] <= 1.0
+    # the cut is laid on beats, so the self-critic should confirm the on-beat dimension
+    assert any(dimension["name"] == "on_beat" for dimension in quality["dimensions"])
 
 
 def test_pipeline_keeps_the_source_master_by_default(

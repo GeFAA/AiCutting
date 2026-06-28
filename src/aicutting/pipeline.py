@@ -29,6 +29,7 @@ from aicutting.planning.assemble import assemble_cut_plan, fallback_edit
 from aicutting.planning.duration import choose_target_duration
 from aicutting.planning.rhythm import build_rhythm_grid
 from aicutting.planning.sequence import color_ordered_edit
+from aicutting.quality.critic import score_edit
 from aicutting.render.ffmpeg import render_timeline
 from aicutting.render.reframe import reframe_timeline
 from aicutting.resolve.export import export_resolve_handoff
@@ -336,6 +337,15 @@ def _build_director_3_plan(
     # reframe to the requested social aspect (9:16 / 1:1); 16:9 leaves the source master untouched.
     graded = plan.timeline.model_copy(update={"grade_strength": style.grade_strength})
     reframed = reframe_timeline(graded, aspect)
+    # Self-critic: grade the finished cut (on-beat, variety, pacing) and surface it. Read-only --
+    # it never alters the timeline -- so a low grade is reported, not silently "fixed".
+    quality = score_edit(reframed, beat_plan.beats_s)
+    write_json_model(output_dir / "edit-quality.json", quality)
+    emit_progress(
+        progress,
+        PipelinePhase.ASSEMBLING_CUT,
+        message=f"self-critic: grade {quality.grade} ({quality.overall:.0%})",
+    )
     return plan.model_copy(update={"timeline": reframed})
 
 

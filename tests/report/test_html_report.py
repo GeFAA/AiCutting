@@ -21,6 +21,7 @@ from aicutting.director.edit_models import (
     RhythmSlot,
 )
 from aicutting.director.models import LocationSuggestion
+from aicutting.quality.critic import DimensionScore, EditQuality
 from aicutting.report import build_report
 
 
@@ -161,6 +162,30 @@ def test_build_report_renders_full_artifacts(tmp_path: Path) -> None:
     # A real thumbnail was extracted for at least one clip.
     thumbs = list((tmp_path / "report-assets").glob("*.jpg"))
     assert thumbs, "expected at least one extracted thumbnail jpg"
+
+
+def test_build_report_shows_self_critic_grade(tmp_path: Path) -> None:
+    video = tmp_path / "clip.avi"
+    _write_tiny_video(video)
+    write_json_model(tmp_path / "timeline.json", _two_clip_timeline(video))
+    write_json_model(
+        tmp_path / "edit-quality.json",
+        EditQuality(
+            overall=0.93,
+            grade="A",
+            dimensions=[
+                DimensionScore(name="on_beat", score=1.0, detail="2/2 cuts on the beat"),
+                DimensionScore(name="variety", score=0.8, detail="2 distinct shots"),
+            ],
+        ),
+    )
+
+    report_path = build_report(tmp_path)
+    html = report_path.read_text(encoding="utf-8")
+
+    assert "Self-Critic" in html
+    assert "grade A" in html
+    assert "On Beat" in html  # the dimension is surfaced with its bar
 
 
 def test_build_report_with_only_timeline(tmp_path: Path) -> None:

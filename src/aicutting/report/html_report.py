@@ -24,6 +24,7 @@ from aicutting.director.edit_models import (
     RhythmSlot,
 )
 from aicutting.director.models import LocationSuggestion
+from aicutting.quality.critic import EditQuality
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -41,12 +42,13 @@ def build_report(output_dir: Path) -> Path:
     edit = _load_model(output_dir / "edit-decision.json", EditDecision)
     director = _load_model(output_dir / "director-3-report.json", Director3Report)
     locations = _load_models(output_dir / "location-suggestions.json", LocationSuggestion)
+    quality = _load_model(output_dir / "edit-quality.json", EditQuality)
 
     clips = list(timeline.clips) if timeline is not None else []
     thumbs = _extract_thumbnails(clips, output_dir / "report-assets")
 
     document = _render_document(
-        timeline, clips, thumbs, ratings, slots, edit, director, locations
+        timeline, clips, thumbs, ratings, slots, edit, director, locations, quality
     )
     report_path = output_dir / "report.html"
     report_path.write_text(document, encoding="utf-8")
@@ -163,12 +165,14 @@ def _render_document(
     edit: EditDecision | None,
     director: Director3Report | None,
     locations: list[LocationSuggestion],
+    quality: EditQuality | None,
 ) -> str:
     body = "\n".join(
         part
         for part in (
-            _render_header(timeline, clips, ratings, director),
+            _render_header(timeline, clips, ratings, director, quality),
             _render_warnings(director),
+            _render_quality_section(quality),
             _render_cut_section(clips, thumbs, slots, edit),
             _render_selection_section(ratings),
             _render_rhythm_section(slots),
@@ -194,6 +198,7 @@ def _render_header(
     clips: list[TimelineClip],
     ratings: list[MomentRating],
     director: Director3Report | None,
+    quality: EditQuality | None = None,
 ) -> str:
     title = "AiCutting Report"
     subtitle = "Drone Director 3.0"
@@ -209,7 +214,7 @@ def _render_header(
     fps = f"{timeline.fps:g}" if timeline is not None else "—"
     resolution = f"{timeline.width}×{timeline.height}" if timeline is not None else "—"
 
-    stats = (
+    stats = [
         ("Backend", _esc(backend)),
         ("Rated", str(rated)),
         ("Kept", str(kept)),
@@ -218,7 +223,9 @@ def _render_header(
         ("Duration", _fmt_seconds(total)),
         ("FPS", _esc(fps)),
         ("Resolution", _esc(resolution)),
-    )
+    ]
+    if quality is not None:
+        stats.append(("Grade", _esc(quality.grade)))
     cards = "\n".join(
         f'<div class="stat"><span class="stat-value">{value}</span>'
         f'<span class="stat-label">{_esc(label)}</span></div>'
@@ -230,6 +237,31 @@ def _render_header(
         f'<p class="hero-sub">{_esc(subtitle)}</p>\n'
         f'<div class="stats">\n{cards}\n</div>\n'
         "</header>"
+    )
+
+
+def _render_quality_section(quality: EditQuality | None) -> str:
+    # The self-critic: the director's own grade for the finished cut, with a bar per dimension.
+    if quality is None or not quality.dimensions:
+        return ""
+    rows = []
+    for dimension in quality.dimensions:
+        pct = round(dimension.score * 100)
+        label = dimension.name.replace("_", " ").title()
+        rows.append(
+            '<div class="q-row">\n'
+            '<div style="display:flex;justify-content:space-between;margin:14px 0 5px">'
+            f"<span>{_esc(label)}</span>"
+            f'<span class="bar-num">{pct}%</span></div>\n'
+            f'<div class="bar"><div class="bar-fill" style="width:{pct}%"></div></div>\n'
+            f'<p class="clip-time" style="margin:5px 0 0">{_esc(dimension.detail)}</p>\n'
+            "</div>"
+        )
+    return (
+        '<section class="quality">\n'
+        f'<h2>Self-Critic <span class="count">grade {_esc(quality.grade)} '
+        f"&middot; {quality.overall:.0%}</span></h2>\n"
+        f"{chr(10).join(rows)}\n</section>"
     )
 
 

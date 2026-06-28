@@ -31,6 +31,8 @@ always.
 - ✅ **Style presets** — `--style` cinematic · epic · chill · vlog retunes the whole edit.
 - ✅ **Vertical & square masters** — `--aspect 9:16` / `1:1` reframes the cut into a full-bleed,
   cover-cropped social master (no bars, no stretch). *Subject-aware tracking is the next step.*
+- ✅ **Self-critic** — the director grades its own finished cut (on-beat, variety, pacing) and
+  surfaces the score in `report.html`. *Auto-fixing the weak parts is the next step.*
 
 ---
 

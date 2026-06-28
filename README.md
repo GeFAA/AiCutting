@@ -37,6 +37,9 @@ cinematic edit — from one local command.** No timeline, no cloud upload, no ma
   stretched, no letterbox bars.
 - 📊 **Shows its work.** A self-contained `report.html` with a thumbnail of every chosen clip and
   *why* it was kept, plus a live terminal view of each stage as it runs.
+- 🎓 **Grades its own edit.** A built-in self-critic scores the finished cut — on-beat accuracy,
+  shot variety, pacing — and shows the grade and breakdown in the report, so you see the quality,
+  not just the result.
 - 🔒 **100% local.** Vision agent (Codex / Claude Code) + FFmpeg. Your footage never leaves the
   machine. No agent? A deterministic fallback still produces a full, beat-synced edit.
 - 🎞️ **Hands off to your NLE.** Exports a rendered MP4 *and* DaVinci Resolve / FCPXML / EDL
@@ -119,10 +122,11 @@ Every stage writes an auditable JSON artifact (`footage-ratings.json`, `rhythm-g
 
 ## 📊 Total transparency
 
-Open **`report.html`** after a run to see exactly what the AI did: a thumbnail card for every
-clip in the cut (source, length, transition, on-beat marker, and the agent's reason), the
-kept-vs-rejected breakdown with grouped rejection reasons, and the energy grid that drove the
-pacing. The terminal shows the same stages **live** as the run progresses.
+Open **`report.html`** after a run to see exactly what the AI did: the **self-critic grade** for
+the finished edit (on-beat accuracy, shot variety, pacing), a thumbnail card for every clip in the
+cut (source, length, transition, on-beat marker, and the agent's reason), the kept-vs-rejected
+breakdown with grouped rejection reasons, and the energy grid that drove the pacing. The terminal
+shows the same stages **live** as the run progresses.
 
 ---
 
