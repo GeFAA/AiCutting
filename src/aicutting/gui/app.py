@@ -25,19 +25,6 @@ def main() -> int:
     return int(app.exec())
 
 
-def main_widgets() -> int:
-    # The legacy QWidgets window, kept until the QML View reaches parity.
-    qt = require_qt()
-    from aicutting.gui.main_window import MainWindow
-
-    app = qt.widgets.QApplication.instance() or qt.widgets.QApplication(sys.argv)
-    app.setApplicationName("AiCutting Studio")
-    window = MainWindow()
-    window.resize(1100, 720)
-    window.show()
-    return int(app.exec())
-
-
 def main_cli() -> int:
     try:
         return main()

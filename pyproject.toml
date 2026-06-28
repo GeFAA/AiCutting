@@ -77,9 +77,7 @@ packages = ["aicutting"]
 module = [
   "aicutting.gui.app",
   "aicutting.gui.backend",
-  "aicutting.gui.main_window",
   "aicutting.gui.qt",
-  "aicutting.gui.widgets",
   "aicutting.gui.worker",
 ]
 ignore_errors = true

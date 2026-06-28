@@ -23,17 +23,34 @@ def test_backend_starts_idle(qtbot) -> None:  # type: ignore[no-untyped-def]
     assert backend.busy is False
 
 
-def test_backend_set_folder_moves_to_compose(qtbot) -> None:  # type: ignore[no-untyped-def]
+def _folder_with_video(tmp_path):  # type: ignore[no-untyped-def]
+    folder = tmp_path / "footage"
+    folder.mkdir()
+    (folder / "clip.mp4").write_text("", encoding="utf-8")
+    return folder
+
+
+def test_backend_set_folder_moves_to_compose(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    folder = _folder_with_video(tmp_path)
     backend = Backend()
     with qtbot.waitSignal(backend.statusChanged):
-        backend.setFolder("C:/footage")
+        backend.setFolder(str(folder))
     assert backend.status == "compose"
-    assert backend.chosenFolder == "C:/footage"
+    assert backend.chosenFolder == str(folder)
 
 
-def test_backend_reset_returns_to_idle(qtbot) -> None:  # type: ignore[no-untyped-def]
+def test_backend_rejects_a_folder_without_videos(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    empty = tmp_path / "empty"
+    empty.mkdir()
     backend = Backend()
-    backend.setFolder("C:/footage")
+    with qtbot.waitSignal(backend.statusChanged):
+        backend.setFolder(str(empty))
+    assert backend.status == "error"  # no videos -> not allowed to compose
+
+
+def test_backend_reset_returns_to_idle(qtbot, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    backend = Backend()
+    backend.setFolder(str(_folder_with_video(tmp_path)))
     with qtbot.waitSignal(backend.statusChanged):
         backend.reset()
     assert backend.status == "idle"

@@ -5,6 +5,7 @@ from PySide6.QtGui import QDesktopServices
 
 from aicutting.core.progress import CancellationToken, PipelinePhase, ProgressEvent
 from aicutting.gui.jobs import JobFailure, JobRequest
+from aicutting.gui.state import GuiSelection, validate_selection
 from aicutting.gui.worker import CutWorker
 from aicutting.pipeline import PipelineResult
 
@@ -141,6 +142,15 @@ class Backend(QObject):
     # --- slots invoked from QML ---
     @Slot(str)
     def setFolder(self, path: str) -> None:
+        folder = Path(path)
+        result = validate_selection(
+            GuiSelection(input_dir=folder, output_dir=folder / "aicutting-out")
+        )
+        if not result.ready:
+            self._message = result.messages[0] if result.messages else "Invalid footage folder."
+            self.liveMessageChanged.emit()
+            self._set_status("error")
+            return
         self._folder = path
         self.chosenFolderChanged.emit()
         self._set_status("compose")
