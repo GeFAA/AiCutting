@@ -4,6 +4,14 @@ All notable changes to AiCutting are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [4.1.2] — 2026-06-28
+
+### Fixed
+- **The cut was capped at 75 s for songs between 45 s and 240 s**, so a 3-minute track produced a
+  75 s edit that used only a fraction of the good footage and cut the song short. The target now
+  matches the song length (clamped 15–300 s), so the whole track plays and the cut showcases the
+  footage. Verified on a real cut: 14 → 30 distinct good scenes used.
+
 ## [4.1.1] — 2026-06-28
 
 ### Fixed
@@ -58,6 +66,7 @@ All notable changes to AiCutting are documented here. The format follows
   length variants (`--variants` → teaser + short), and the read-only self-critic that grades the
   finished cut and surfaces it in `report.html`.
 
+[4.1.2]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.2
 [4.1.1]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.1
 [4.1.0]: https://github.com/GeFAA/AiCutting/releases/tag/v4.1.0
 [4.0.0]: https://github.com/GeFAA/AiCutting/releases/tag/v4.0.0
