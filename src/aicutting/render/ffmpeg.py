@@ -52,16 +52,21 @@ def _horizon_level(clip: TimelineClip) -> str:
     return f"rotate={radians:.5f}:ow=iw:oh=ih,crop=iw/{zoom}:ih/{zoom},"
 
 
-def _scale_clause(timeline: Timeline) -> str:
+def _scale_clause(timeline: Timeline, clip: TimelineClip) -> str:
     # A landscape master scales straight to the frame (the source is already 16:9), byte-identical
-    # to the shipped behaviour. A vertical/square master instead *covers* the frame and centre-crops
-    # so a 16:9 source fills a 9:16 / 1:1 frame with no stretched pixels and no letterbox bars.
-    if timeline.height >= timeline.width:
-        return (
-            f"scale={timeline.width}:{timeline.height}:force_original_aspect_ratio=increase,"
-            f"crop={timeline.width}:{timeline.height}"
-        )
-    return f"scale={timeline.width}:{timeline.height}"
+    # to the shipped behaviour. A vertical/square master instead *covers* the frame and crops so a
+    # 16:9 source fills a 9:16 / 1:1 frame with no stretched pixels and no letterbox bars. The crop
+    # is centred by default (byte-identical) and offset toward the subject when content-aware
+    # reframing set clip.crop_x.
+    if timeline.height < timeline.width:
+        return f"scale={timeline.width}:{timeline.height}"
+    crop = (
+        f"scale={timeline.width}:{timeline.height}:force_original_aspect_ratio=increase,"
+        f"crop={timeline.width}:{timeline.height}"
+    )
+    if clip.crop_x != 0.5:
+        crop += f":x=(iw-{timeline.width})*{clip.crop_x:g}:y=(ih-{timeline.height})/2"
+    return crop
 
 
 def build_ffmpeg_command(
@@ -87,7 +92,6 @@ def build_ffmpeg_command(
     video_filters: list[str] = []
     concat_inputs: list[str] = []
     grade = _color_grade(timeline.grade_strength)
-    scale = _scale_clause(timeline)
     for index, clip in enumerate(timeline.clips):
         label = f"v{index}"
         animation = _clip_animation(clip, timeline, index)
@@ -95,6 +99,7 @@ def build_ffmpeg_command(
         # speed 1.0 keeps the plain reset so existing behaviour is byte-identical.
         pts = "PTS-STARTPTS" if clip.speed == 1.0 else f"(PTS-STARTPTS)/{clip.speed:g}"
         level = _horizon_level(clip)
+        scale = _scale_clause(timeline, clip)
         colormatch = _color_match(clip)
         video_filters.append(
             f"[{index}:v]setpts={pts},{level}{scale},"

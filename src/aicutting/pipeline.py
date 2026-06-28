@@ -7,6 +7,7 @@ from aicutting.analysis.audio import analyze_music
 from aicutting.analysis.beat_plan import build_beat_plan
 from aicutting.analysis.color import moment_color_signatures
 from aicutting.analysis.color_match import match_clip_color_gains
+from aicutting.analysis.content_reframe import clip_crop_offsets
 from aicutting.analysis.discovery import discover_music, discover_videos
 from aicutting.analysis.ffprobe import probe_video
 from aicutting.analysis.footage_meta import recording_date_label
@@ -411,7 +412,7 @@ def _finalize_timeline(
     levelled = _level_horizons(hero)
     matched = _match_clip_colors(levelled)
     graded = matched.model_copy(update={"grade_strength": style.grade_strength})
-    reframed = reframe_timeline(graded, aspect)
+    reframed = _content_reframe(reframe_timeline(graded, aspect))
     quality = score_edit(reframed, beat_plan.beats_s)
     write_json_model(output_dir / "edit-quality.json", quality)
     emit_progress(
@@ -436,6 +437,24 @@ def _level_horizons(timeline: Timeline) -> Timeline:
     clips = [
         clip.model_copy(update={"level_deg": deg})
         for clip, deg in zip(timeline.clips, degrees, strict=False)
+    ]
+    return timeline.model_copy(update={"clips": clips})
+
+
+def _content_reframe(timeline: Timeline) -> Timeline:
+    # Content-aware reframe (best-effort): for a portrait/square master, shift each clip's crop
+    # toward its subject. Landscape masters and any read failure leave the centre crop untouched.
+    if timeline.height < timeline.width or len(timeline.clips) < 1:
+        return timeline
+    try:
+        offsets = clip_crop_offsets(timeline.clips, timeline)
+    except Exception:
+        return timeline
+    if all(offset == 0.5 for offset in offsets):
+        return timeline
+    clips = [
+        clip.model_copy(update={"crop_x": offset})
+        for clip, offset in zip(timeline.clips, offsets, strict=False)
     ]
     return timeline.model_copy(update={"clips": clips})
 

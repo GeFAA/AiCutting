@@ -69,6 +69,25 @@ def test_vertical_master_cover_crops_each_clip() -> None:
     assert "scale=1080:1920," not in filter_complex
 
 
+def test_content_aware_crop_offsets_the_window() -> None:
+    vertical = _timeline().model_copy(update={"width": 1080, "height": 1920})
+    biased = vertical.clips[0].model_copy(update={"crop_x": 0.0})  # subject hard-left
+    timeline = vertical.model_copy(update={"clips": [biased]})
+    command = build_ffmpeg_command(timeline, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "crop=1080:1920:x=(iw-1080)*0:y=" in filter_complex
+
+
+def test_centred_crop_x_keeps_the_plain_cover_crop() -> None:
+    # the default crop_x (0.5) adds no x/y offset -> byte-identical to the shipped cover-crop
+    vertical = _timeline().model_copy(update={"width": 1080, "height": 1920})
+    command = build_ffmpeg_command(vertical, output_path=Path("out/final.mp4"), music_path=None)
+    filter_complex = command[command.index("-filter_complex") + 1]
+
+    assert "crop=1080:1920:x=" not in filter_complex
+
+
 def test_color_matched_clip_gets_a_channel_mixer() -> None:
     base = _timeline()
     matched = base.clips[0].model_copy(update={"color_gain": (1.1, 1.0, 0.92)})

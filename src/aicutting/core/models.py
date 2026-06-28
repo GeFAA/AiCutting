@@ -128,6 +128,8 @@ class TimelineClip(BaseModel):
     level_deg: float = 0.0
     # The hero shot on the biggest drop -- gets a pronounced push-in in the renderer.
     hero: bool = False
+    # Horizontal offset for the vertical/square cover-crop (0=left, 0.5=centre, 1=right).
+    crop_x: float = 0.5
 
     @field_validator("source_end_s")
     @classmethod
