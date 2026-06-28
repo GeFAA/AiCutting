@@ -23,6 +23,23 @@ def test_backend_starts_idle(qtbot) -> None:  # type: ignore[no-untyped-def]
     assert backend.busy is False
 
 
+def test_backend_set_folder_moves_to_compose(qtbot) -> None:  # type: ignore[no-untyped-def]
+    backend = Backend()
+    with qtbot.waitSignal(backend.statusChanged):
+        backend.setFolder("C:/footage")
+    assert backend.status == "compose"
+    assert backend.chosenFolder == "C:/footage"
+
+
+def test_backend_reset_returns_to_idle(qtbot) -> None:  # type: ignore[no-untyped-def]
+    backend = Backend()
+    backend.setFolder("C:/footage")
+    with qtbot.waitSignal(backend.statusChanged):
+        backend.reset()
+    assert backend.status == "idle"
+    assert backend.chosenFolder == ""
+
+
 def test_backend_maps_progress_to_a_stage(qtbot) -> None:  # type: ignore[no-untyped-def]
     backend = Backend()
     with qtbot.waitSignal(backend.stageIndexChanged):

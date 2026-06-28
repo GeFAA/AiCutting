@@ -40,10 +40,12 @@ class Backend(QObject):
     busyChanged = Signal()
     gradeChanged = Signal()
     resultChanged = Signal()
+    chosenFolderChanged = Signal()
 
     def __init__(self) -> None:
         super().__init__()
         self._status = "idle"
+        self._folder = ""
         self._stage = -1
         self._message = ""
         self._busy = False
@@ -65,6 +67,11 @@ class Backend(QObject):
         return self._status
 
     status = Property(str, _get_status, notify=statusChanged)
+
+    def _get_folder(self) -> str:
+        return self._folder
+
+    chosenFolder = Property(str, _get_folder, notify=chosenFolderChanged)
 
     def _get_stage(self) -> int:
         return self._stage
@@ -132,6 +139,18 @@ class Backend(QObject):
     hasShort = Property(bool, _get_has_short, notify=resultChanged)
 
     # --- slots invoked from QML ---
+    @Slot(str)
+    def setFolder(self, path: str) -> None:
+        self._folder = path
+        self.chosenFolderChanged.emit()
+        self._set_status("compose")
+
+    @Slot()
+    def reset(self) -> None:
+        self._folder = ""
+        self.chosenFolderChanged.emit()
+        self._set_status("idle")
+
     @Slot(str, str, str, str, bool)
     def startCut(self, folder: str, music: str, style: str, aspect: str, variants: bool) -> None:
         if self._busy:

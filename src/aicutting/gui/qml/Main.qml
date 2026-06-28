@@ -1,15 +1,17 @@
 import QtQuick
 import QtQuick.Window
+import "."
 
 Window {
     width: 1180; height: 760
     visible: true
     title: "AiCutting Studio"
-    color: "#0B0D10"
+    color: Theme.canvas
 
-    Text {
+    Rectangle {
         anchors.centerIn: parent
-        color: "#F2F4F7"
-        text: backend.status   // proves the Backend context property is wired
+        width: 120; height: 40; radius: Theme.rMd
+        color: Theme.accent
+        Text { anchors.centerIn: parent; text: backend.status; color: Theme.canvas }
     }
 }
