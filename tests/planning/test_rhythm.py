@@ -48,6 +48,25 @@ def test_grid_covers_beatless_intro_so_time_stays_absolute() -> None:
     assert all(grid[i].end_s == grid[i + 1].start_s for i in range(len(grid) - 1))
 
 
+def test_grid_covers_a_small_lead_in_so_cuts_stay_on_beat() -> None:
+    # The song's first beat is at 0.26 s -- too small for an intro slot, but the lead-in must still
+    # be covered so the cumulative timeline stays aligned with the music. Otherwise every cut is
+    # offset from its beat by ~0.26 s (the bug that graded a real cut F on on-beat).
+    beats = [round(0.26 + i * 0.68, 3) for i in range(60)]  # ~40 s, first beat at 0.26
+    audio = AudioAnalysis(path=None, duration_s=42.0, beats_s=beats, energy=[0.5])
+    grid = build_rhythm_grid(build_beat_plan(audio), target_duration_s=42.0)
+
+    assert grid[0].start_s == 0.0  # the first slot covers t=0, not the first beat
+    # the cumulative slot durations (= the rendered cut times) all land on a beat
+    cumulative = 0.0
+    cut_times: list[float] = []
+    for slot in grid:
+        cumulative += slot.duration_s
+        cut_times.append(round(cumulative, 3))
+    for cut in cut_times[:-1]:  # the final partial slot may run a touch past the last beat
+        assert min(abs(cut - beat) for beat in beats) <= 0.12, f"cut {cut} is off the beat"
+
+
 def test_no_music_uses_default_visual_grid() -> None:
     audio = AudioAnalysis(path=None, duration_s=0.0, beats_s=[], energy=[])
     grid = build_rhythm_grid(build_beat_plan(audio), target_duration_s=12.0)

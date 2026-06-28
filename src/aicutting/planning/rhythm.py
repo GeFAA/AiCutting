@@ -22,13 +22,18 @@ def build_rhythm_grid(
     # Cover the beatless intro (0 -> first beat) so the cumulative slot time stays the absolute
     # song time; otherwise every later cut is offset from its beat by the length of the intro.
     _add_intro_slots(slots, beats[0], beat_plan)
+    # The grid must start at t=0 so the cumulative slot time equals absolute song time. When the
+    # lead-in was too small for an intro slot (a first beat at, say, 0.26 s), the first beat slot
+    # still has to start at 0 -- otherwise the whole timeline is offset by that lead-in and every
+    # cut lands off the beat.
+    grid_start = slots[-1].end_s if slots else 0.0
     # The style's `pace` retunes how long the mid/calm sections hold. Round to whole bars so the
     # downbeat snapping and phrase clamp below keep working; the drop span always stays one bar.
     mid_span = max(1, round(2 * pace)) * _BAR
     calm_span = max(1, round(3 * pace)) * _BAR
     index = 0
     while index < len(beats) - 1:
-        start = beats[index]
+        start = grid_start if index == 0 else beats[index]
         energy = _energy_at(beat_plan, start, target_duration_s)
         # Span whole bars (drop = 1 bar, calm ~3 bars at pace 1.0) and snap the cut to a downbeat so
         # it lands on a strong beat; never run a slot across a phrase boundary so the cut aligns
