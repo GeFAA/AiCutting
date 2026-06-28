@@ -4,6 +4,7 @@ import "."
 Row {
     id: root
     property bool checked: false
+    property string label: "Also make teaser + short"
     spacing: 12
 
     Rectangle {
@@ -21,7 +22,7 @@ Row {
         MouseArea { anchors.fill: parent; onClicked: root.checked = !root.checked }
     }
     Text {
-        text: "Also make teaser + short"
+        text: root.label
         anchors.verticalCenter: parent.verticalCenter
         font.family: Theme.fontBody; font.pixelSize: 13; color: Theme.textMid
     }

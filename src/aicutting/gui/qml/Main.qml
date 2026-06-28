@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Window
+import QtQuick.Dialogs
 import "."
 
 Window {
@@ -8,15 +9,37 @@ Window {
     visible: true
     title: "AiCutting Studio"
     color: Theme.canvas
+    property bool advanced: false
 
-    // faint vignette behind everything
-    Rectangle {
+    Rectangle {  // faint vignette
         anchors.fill: parent
         gradient: Gradient {
             GradientStop { position: 0.0; color: "#11151D" }
             GradientStop { position: 1.0; color: Theme.canvas }
         }
         opacity: 0.7
+    }
+
+    // ---- native pickers ----
+    FolderDialog {
+        id: folderDialog
+        onAccepted: {
+            var p = selectedFolder.toString().replace("file:///", "");
+            reel.clipCount = backend.countClips(p);
+            backend.setFolder(p);
+        }
+    }
+    FileDialog {
+        id: musicDialog
+        nameFilters: ["Audio files (*.mp3 *.wav *.flac *.m4a *.aac *.ogg)", "All files (*)"]
+        onAccepted: music.path = selectedFile.toString().replace("file:///", "")
+    }
+    FolderDialog {
+        id: outputDialog
+        onAccepted: {
+            var p = selectedFolder.toString().replace("file:///", "");
+            backend.setOutput(p); outputPath.text = p;
+        }
     }
 
     Item {
@@ -31,8 +54,9 @@ Window {
             visible: opacity > 0
             Behavior on opacity { NumberAnimation { duration: Theme.tScene } }
             DropZone {
-                width: 600; height: 320; anchors.centerIn: parent
+                width: 600; height: 340; anchors.centerIn: parent
                 onFolderDropped: (p) => { reel.clipCount = backend.countClips(p); backend.setFolder(p); }
+                onBrowseRequested: folderDialog.open()
             }
         }
 
@@ -45,7 +69,11 @@ Window {
             Column {
                 anchors.centerIn: parent; spacing: Theme.s3; width: 600
                 ReelChip { id: reel; folder: backend.chosenFolder }
-                MusicField { id: music; width: parent.width; onMusicDropped: (p) => music.path = p }
+                MusicField {
+                    id: music; width: parent.width
+                    onMusicDropped: (p) => music.path = p
+                    onBrowseRequested: musicDialog.open()
+                }
                 Column {
                     spacing: 9
                     Text {
@@ -73,6 +101,28 @@ Window {
                         VariantsToggle { id: variants; height: 56 }
                     }
                 }
+                GhostButton {
+                    text: win.advanced ? "Advanced  ▾" : "Advanced  ▸"
+                    onClicked: win.advanced = !win.advanced
+                }
+                Column {
+                    visible: win.advanced; spacing: Theme.s2; width: parent.width
+                    Row {
+                        spacing: Theme.s2
+                        GhostButton { text: "Output folder…"; onClicked: outputDialog.open() }
+                        Text {
+                            id: outputPath
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: backend.chosenFolder ? backend.defaultOutput(backend.chosenFolder) : ""
+                            font.family: Theme.fontMono; font.pixelSize: 11; color: Theme.textLow
+                            elide: Text.ElideMiddle; width: 420
+                        }
+                    }
+                    VariantsToggle {
+                        label: "Plan & report only — no render"
+                        onCheckedChanged: backend.setDryRun(checked)
+                    }
+                }
                 Row {
                     spacing: Theme.s2
                     PrimaryButton {
@@ -96,6 +146,11 @@ Window {
                 StageProgress {
                     anchors.horizontalCenter: parent.horizontalCenter
                     stage: backend.stageIndex; message: backend.liveMessage
+                }
+                LiveStrip {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    hero: backend.heroImage; thumbnails: backend.liveThumbnails
+                    detail: backend.liveDetail; step: backend.stepCurrent; total: backend.stepTotal
                 }
                 GhostButton {
                     anchors.horizontalCenter: parent.horizontalCenter

@@ -4,6 +4,7 @@ import "."
 Item {
     id: root
     signal folderDropped(string path)
+    signal browseRequested
     property bool hover: false
 
     Rectangle {
@@ -28,7 +29,11 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 font.family: Theme.fontBody; font.pixelSize: 13; color: Theme.textLow
-                text: "a folder of clips — the AI directs the cut"
+                text: "drop a folder of clips — or"
+            }
+            GhostButton {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Browse folder…"; onClicked: root.browseRequested()
             }
         }
         // horizontal corner ticks

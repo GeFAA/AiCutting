@@ -5,6 +5,7 @@ Rectangle {
     id: root
     property string path: ""
     signal musicDropped(string p)
+    signal browseRequested
     implicitHeight: 56
     radius: Theme.rMd
     color: Theme.surface2
@@ -33,6 +34,11 @@ Rectangle {
             font.family: Theme.fontBody; font.pixelSize: 13
             color: root.path ? Theme.textHi : Theme.textLow
         }
+    }
+    GhostButton {
+        anchors.right: parent.right; anchors.rightMargin: 12
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Choose…"; onClicked: root.browseRequested()
     }
     DropArea {
         id: da; anchors.fill: parent
